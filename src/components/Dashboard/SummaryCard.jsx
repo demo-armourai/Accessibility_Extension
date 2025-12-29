@@ -5,7 +5,7 @@ const percentage = (value, total) => (total === 0 ? 0 : Math.round((value / tota
 
 
 
-const SummaryCard = ({ summary, onReRun, onDownloadReport, showBestPractices, toggleBestPractices }) => {
+const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, showBestPractices, toggleBestPractices }) => {
     const passedPercent = percentage(summary.passed, summary.total_tests);
     const chartStyle = {
         backgroundImage: `conic-gradient(var(--green) 0 ${passedPercent}%, var(--orange) ${passedPercent}% 100%)`
@@ -120,6 +120,9 @@ const SummaryCard = ({ summary, onReRun, onDownloadReport, showBestPractices, to
                     </div>
                 </div>
                 <div className={styles['summary-buttons']}>
+                    <button className={`${styles.btn} ${styles['btn-secondary']}`} onClick={onSave} style={{ gap: '6px' }}>
+                        💾 Save
+                    </button>
                     <button className={`${styles.btn} ${styles['btn-secondary']}`} onClick={onReRun}>
                         Re-run Tests
                     </button>

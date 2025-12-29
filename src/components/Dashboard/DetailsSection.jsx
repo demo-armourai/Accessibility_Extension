@@ -3,7 +3,7 @@ import styles from './Dashboard.module.css';
 import SummaryCard from './SummaryCard';
 import CategoryPanel from './CategoryPanel';
 
-const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHighlight, onReRun, onDownloadReport, highlightedItemId, showBestPractices, setShowBestPractices }) => {
+const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHighlight, onReRun, onSave, onDownloadReport, highlightedItemId, showBestPractices, setShowBestPractices }) => {
     const ITEMS_PER_PAGE = 5;
 
     const [openViolationIndex, setOpenViolationIndex] = useState(violations.length ? 0 : -1);
@@ -53,6 +53,7 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
             <SummaryCard
                 summary={summary}
                 onReRun={onReRun}
+                onSave={onSave}
                 onDownloadReport={onDownloadReport}
                 showBestPractices={showBestPractices}
                 toggleBestPractices={() => setShowBestPractices(prev => !prev)}

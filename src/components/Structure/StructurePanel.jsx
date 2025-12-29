@@ -81,32 +81,27 @@ const StructurePanel = () => {
             return;
         }
 
-        // Find most recent structure scan in history
-        const previousScanSummary = [...scanHistory]
-            .filter(s => s.type === 'structure')
-            .sort((a, b) => b.timestamp - a.timestamp)[0];
-
-        if (!previousScanSummary) {
-            setToastMessage('No previous Structure scans found.');
-            return;
-        }
-
         if (!structure) {
             setToastMessage('Please run a current scan first to compare.');
             return;
         }
 
         try {
-            const oldScan = await loadScanData(previousScanSummary.id);
-            console.log('[Structure Diff] Old scan loaded:', oldScan);
+            // Use the new smart fetcher
+            const currentUrl = structureMetadata?.url || "unknown"; // Use metadata URL which (from content script) is the page URL
+            const oldScanData = await history.getLatestScanForPage('structure', currentUrl);
+
+            console.log('[Structure Diff] Old scan loaded:', oldScanData);
             console.log('[Structure Diff] Current structure:', structure);
 
-            if (!oldScan) {
-                setToastMessage('Failed to load previous scan data.');
+            if (!oldScanData) {
+                setToastMessage('No previous scan found for this URL.');
                 return;
             }
 
-            const diff = DiffEngine.compareScans(oldScan, { type: 'structure', data: structure });
+            const oldScanWrapper = { type: 'structure', data: oldScanData };
+
+            const diff = DiffEngine.compareScans(oldScanWrapper, { type: 'structure', data: structure });
             console.log('[Structure Diff] Diff result:', diff);
 
             if (diff.error) {

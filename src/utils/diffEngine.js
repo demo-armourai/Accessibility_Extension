@@ -37,42 +37,45 @@ export const DiffEngine = {
      * Matches items based on 'name' + 'role' + 'tabindex' signature, likely position.
      * Tab Order is an ordered list, so index matters.
      */
-    compareTabOrder(oldList, newList) {
+    compareTabOrder(oldInput, newInput) {
         const added = [];
         const removed = [];
-        const changed = []; // Order changed or attributes changed
+        const changed = [];
         const unchanged = [];
 
-        // Simple matching strategy: Map by Key (Role+Name)
-        // If duplicates exist, this simple key strategy might fail.
-        // But for accessibility, Role+Name should be somewhat unique-ish or at least identifying.
+        // Helper: Convert to Map<Key, Array<Items>> (since TabOrder might have duplicates if key is weak)
+        // But with element_key it should be unique.
+        const toGroupedMap = (input) => {
+            const map = new Map();
 
-        // Matching strategy: Use element_key if available, fallback to Name+Role
-        const generateKey = (item) => item.element_key || `${item.role}|${item.name}`;
+            // If Object (Keyed Map from backend)
+            if (!Array.isArray(input) && typeof input === 'object') {
+                Object.entries(input).forEach(([key, value]) => {
+                    if (!map.has(key)) map.set(key, []);
+                    map.get(key).push(value);
+                });
+                return map;
+            }
 
-        const oldMap = new Map();
-        oldList.forEach(item => {
-            const key = generateKey(item);
-            if (!oldMap.has(key)) oldMap.set(key, []);
-            oldMap.get(key).push(item);
-        });
+            // If Array
+            (input || []).forEach(item => {
+                const key = item.element_key || `${item.role}|${item.name}`;
+                if (!map.has(key)) map.set(key, []);
+                map.get(key).push(item);
+            });
+            return map;
+        };
 
-        const newMap = new Map();
-        newList.forEach(item => {
-            const key = generateKey(item);
-            if (!newMap.has(key)) newMap.set(key, []);
-            newMap.get(key).push(item);
-        });
+        const oldMap = toGroupedMap(oldInput);
+        const newMap = toGroupedMap(newInput);
 
         // 1. Detect Removed
         oldMap.forEach((items, key) => {
             if (!newMap.has(key)) {
                 items.forEach(item => removed.push(item));
             } else {
-                // Key exists in both. Check counts.
                 const newItems = newMap.get(key);
                 if (items.length > newItems.length) {
-                    // More in old than new -> some removed
                     for (let i = newItems.length; i < items.length; i++) {
                         removed.push(items[i]);
                     }
@@ -85,10 +88,8 @@ export const DiffEngine = {
             if (!oldMap.has(key)) {
                 items.forEach(item => added.push(item));
             } else {
-                // Key exists in both. Check counts.
                 const oldItems = oldMap.get(key);
                 if (items.length > oldItems.length) {
-                    // More in new than old -> some added
                     for (let i = oldItems.length; i < items.length; i++) {
                         added.push(items[i]);
                     }
@@ -97,43 +98,42 @@ export const DiffEngine = {
         });
 
         // 3. Detect Changed (Position/Index)
-        const oldKeyMap = new Map();
-        oldList.forEach(item => {
-            const key = generateKey(item);
-            if (!oldKeyMap.has(key)) oldKeyMap.set(key, []);
-            oldKeyMap.get(key).push(item);
-        });
+        // For 'Changed', we need strict mapping.
+        // If storage is Object, we lose "original array order" unless 'order' property is preserved in value.
+        // The saved value usually has "order" property inside.
 
-        const usedOldIndices = new Set();
+        // This logic is complex for keyed map because "order" is relative.
+        // Assuming we rely on the 'order' property INSIDE the item object.
 
-        newList.forEach((newItem) => {
-            const key = generateKey(newItem);
-            if (oldKeyMap.has(key)) {
-                const matches = oldKeyMap.get(key);
-                // Find first unused match
-                const matchIndex = matches.findIndex(m => !usedOldIndices.has(m.element_key + m.order));
-                if (matchIndex !== -1) {
-                    const match = matches[matchIndex];
-                    usedOldIndices.add(match.element_key + match.order);
-
-                    if (match.order !== newItem.order) {
-                        changed.push({
-                            ...newItem,
-                            oldOrder: match.order,
-                            newOrder: newItem.order
-                        });
+        newMap.forEach((newItems, key) => {
+            if (oldMap.has(key)) {
+                const oldItems = oldMap.get(key);
+                // Compare first match to first match
+                // Ideally use ID matching if possible
+                newItems.forEach((newItem, index) => {
+                    if (oldItems[index]) {
+                        const oldItem = oldItems[index];
+                        if (oldItem.order !== newItem.order) {
+                            changed.push({
+                                ...newItem,
+                                oldOrder: oldItem.order,
+                                newOrder: newItem.order
+                            });
+                        }
                     }
-                }
+                });
             }
         });
+
+        const countItems = (input) => Array.isArray(input) ? input.length : Object.keys(input).length;
 
         return {
             type: 'tab-order',
             added,
             removed,
             changed,
-            totalOld: oldList.length,
-            totalNew: newList.length
+            totalOld: countItems(oldInput),
+            totalNew: countItems(newInput)
         };
     },
 
@@ -141,33 +141,40 @@ export const DiffEngine = {
      * Compare Structure arrays (Hierarchical/Linearized).
      * Uses Path or Tag+Role+Name as key.
      */
-    compareStructure(oldList, newList) {
+    /**
+     * Compare Structure arrays (refactored for Keyed Objects).
+     */
+    compareStructure(oldInput, newInput) {
         const added = [];
         const removed = [];
 
-        // Use element_key if available, fallback to Tag+Role+Name
-        const generateKey = (item) => {
-            if (item.element_key) return item.element_key;
-            return `${item.tag}|${item.role || 'no-role'}|${item.name || 'no-name'}`;
+        // Helper to normalize input to Map
+        const toMap = (input) => {
+            if (!Array.isArray(input) && typeof input === 'object') {
+                // Already a keyed object
+                return new Map(Object.entries(input));
+            }
+            // Array -> Map
+            const map = new Map();
+            (input || []).forEach(item => {
+                const key = item.element_key || `${item.tag}|${item.role || 'no-role'}|${item.name || 'no-name'}`;
+                map.set(key, item);
+            });
+            return map;
         };
 
-        const oldSet = new Map();
-        oldList.forEach(item => oldSet.set(generateKey(item), item));
+        const oldSet = toMap(oldInput);
+        const newSet = toMap(newInput);
 
-        const newSet = new Map();
-        newList.forEach(item => newSet.set(generateKey(item), item));
-
-        // Removed
-        oldList.forEach(item => {
-            const key = generateKey(item);
+        // Removed: In old but not in new
+        oldSet.forEach((item, key) => {
             if (!newSet.has(key)) {
                 removed.push(item);
             }
         });
 
-        // Added
-        newList.forEach(item => {
-            const key = generateKey(item);
+        // Added: In new but not in old
+        newSet.forEach((item, key) => {
             if (!oldSet.has(key)) {
                 added.push(item);
             }
@@ -177,8 +184,8 @@ export const DiffEngine = {
             type: 'structure',
             added,
             removed,
-            totalOld: oldList.length,
-            totalNew: newList.length
+            totalOld: oldSet.size,
+            totalNew: newSet.size
         };
     }
 };

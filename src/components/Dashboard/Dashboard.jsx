@@ -171,6 +171,21 @@ const Dashboard = ({ onTabChange }) => {
         URL.revokeObjectURL(url);
     };
 
+    const handleSaveScan = async () => {
+        if (!results) return;
+        try {
+            const metadata = {
+                title: document.title,
+                url: window.location.href
+            };
+            await history.saveScan('axe', results, metadata);
+            setToastMessage('Accessibility scan saved to history!');
+        } catch (e) {
+            console.error(e);
+            setToastMessage('Failed to save scan.');
+        }
+    };
+
     const handleLoadScan = async (id) => {
         try {
             const scan = await loadScanData(id);
@@ -253,6 +268,7 @@ const Dashboard = ({ onTabChange }) => {
                     passed={successCategories}
                     onHighlight={handleHighlight}
                     onReRun={runScan}
+                    onSave={handleSaveScan}
                     onDownloadReport={handleDownloadReport}
                     highlightedItemId={highlightedItemId}
                     showBestPractices={showBestPractices}

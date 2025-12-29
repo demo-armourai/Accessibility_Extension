@@ -3,6 +3,8 @@
  * Utilities for persisting and retrieving accessibility scans using chrome.storage.local.
  */
 
+import CONFIG from '../config';
+
 const STORAGE_KEY_PREFIX = 'axe_scan_';
 const MANIFEST_KEY = 'axe_scans_manifest';
 
@@ -130,6 +132,174 @@ export const ScanStorage = {
         await storage.set({ [MANIFEST_KEY]: manifest });
 
         return id;
+    },
+
+    /**
+     * Upload scan to backend
+     * @param {string} type - 'structure' or 'tab-order'
+     * @param {any} data - The scan data
+     * @param {object} metadata - Metadata (title, url)
+     * @param {object} viewport - Viewport dimensions
+     * @param {string} token - Auth token
+     */
+    async uploadScan(type, data, metadata, viewport, token) {
+        if (!token) throw new Error('No auth token provided');
+
+        let endpoint;
+        let payload;
+
+        if (type === 'axe') {
+            endpoint = '/scan/axe';
+
+            // Format Axe results to match backend compliance_scores expectations
+            const results = data; // The raw axe results
+
+            const filterLevelA = (items) => {
+                const WCAG_TAGS = ["wcag2a", "wcag21a", "wcag22a"];
+                return (items || []).filter(item => item.tags && WCAG_TAGS.some(tag => item.tags.includes(tag)));
+            };
+
+            const countUnique = (items) => new Set((items || []).map(item => item.id)).size;
+
+            const createSummaryTable = (items) => {
+                const seen = new Set();
+                return (items || []).filter(item => {
+                    if (seen.has(item.id)) return false;
+                    seen.add(item.id);
+                    return true;
+                }).map(item => ({
+                    ruleId: item.id,
+                    level: 'A',
+                    impact: item.impact || (item.nodes && item.nodes[0]?.impact) || 'minor',
+                    description: item.description || '',
+                    helpUrl: item.helpUrl || '',
+                    helpText: item.helpUrl ? `For more information, see: ${item.helpUrl}` : 'No additional help documentation available.',
+                    nodes: (item.nodes || []).map(node => ({
+                        html: node.html || '',
+                        target: node.target || [],
+                        failureSummary: node.failureSummary || ''
+                    }))
+                }));
+            };
+
+            const violations = filterLevelA(results.violations);
+            const passes = filterLevelA(results.passes);
+            const incomplete = filterLevelA(results.incomplete);
+            const inapplicable = filterLevelA(results.inapplicable);
+
+            const summaryCounts = {
+                violations: countUnique(violations),
+                passes: countUnique(passes),
+                incomplete: countUnique(incomplete),
+                inapplicable: countUnique(inapplicable)
+            };
+
+            const summaryTables = {
+                violations: { count: summaryCounts.violations, rows: createSummaryTable(violations) },
+                passes: { count: summaryCounts.passes, rows: createSummaryTable(passes) },
+                incomplete: { count: summaryCounts.incomplete, rows: createSummaryTable(incomplete) },
+                inapplicable: { count: summaryCounts.inapplicable, rows: createSummaryTable(inapplicable) }
+            };
+
+            const total = summaryCounts.violations + summaryCounts.passes;
+            const score = total > 0 ? Math.round((summaryCounts.passes / total) * 100) : 100;
+
+            payload = {
+                url: results.url || metadata.url || (typeof window !== 'undefined' ? window.location.href : ''),
+                score: score,
+                passes: summaryCounts.passes,
+                violations: summaryCounts.violations,
+                incomplete: summaryCounts.incomplete,
+                inapplicable: summaryCounts.inapplicable,
+                auditResults: {
+                    summaryCounts,
+                    summaryTables,
+                    url: results.url || metadata.url,
+                    level: 'A',
+                    testEnvironment: results.testEnvironment || {
+                        browser: navigator.userAgent,
+                        os: navigator.platform,
+                        axeVersion: results.testEngine?.version || 'unknown'
+                    },
+                    rawAxeOutput: results,
+                    remediationIncluded: true
+                }
+            };
+        } else {
+            endpoint = type === 'structure' ? '/scan/structure' : '/scan/tab-order';
+
+            // Transform Array to Keyed Object (Hash Map) for storage
+            let storageData = data;
+            if (Array.isArray(data)) {
+                storageData = {};
+                data.forEach(item => {
+                    let key = item.element_key;
+                    if (!key) {
+                        if (type === 'tab-order') {
+                            key = `${item.role || ''}|${item.name || ''}|${item.order}`;
+                        } else {
+                            key = `${item.tag || ''}|${item.role || ''}|${item.name || ''}|${item.path || ''}`;
+                        }
+                    }
+                    storageData[key] = item;
+                });
+            }
+
+            payload = {
+                url: metadata.url || (typeof window !== 'undefined' ? window.location.href : ''),
+                title: metadata.title || (typeof document !== 'undefined' ? document.title : ''),
+                data: storageData,
+                viewport: viewport || { width: window.innerWidth, height: window.innerHeight }
+            };
+        }
+
+        const url = `${CONFIG.API_BASE_URL}${endpoint}`;
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errBody = await response.json().catch(() => ({}));
+            throw new Error(`Upload failed: ${errBody.error || response.statusText}`);
+        }
+
+        return await response.json();
+    },
+
+    /**
+     * Get latest scan for a URL from backend
+     * @param {string} type - 'structure' or 'tab-order'
+     * @param {string} url - The URL to check
+     * @param {string} token - Auth token
+     * @returns {Promise<Object|null>} Latest scan data or null
+     */
+    async getLatestScan(type, url, token) {
+        if (!token) return null;
+
+        const endpoint = type === 'structure' ? '/scan/latest/structure' : '/scan/latest/tab-order';
+        const apiUrl = `${CONFIG.API_BASE_URL}${endpoint}?url=${encodeURIComponent(url)}`;
+
+        try {
+            const response = await fetch(apiUrl, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 404) return null;
+            if (!response.ok) throw new Error('Failed to fetch latest scan');
+
+            return await response.json();
+        } catch (e) {
+            console.error('Error fetching latest scan:', e);
+            return null;
+        }
     },
 
     /**

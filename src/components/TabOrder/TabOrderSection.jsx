@@ -62,28 +62,24 @@ const TabOrderSection = () => {
             return;
         }
 
-        // Find most recent tab-order scan in history
-        const previousScanSummary = [...scanHistory]
-            .filter(s => s.type === 'tab-order')
-            .sort((a, b) => b.timestamp - a.timestamp)[0];
-
-        if (!previousScanSummary) {
-            setToastMessage('No previous Tab Order scans found.');
-            return;
-        }
-
         if (!orderData) {
             setToastMessage('Please run a current scan first to compare.');
             return;
         }
 
         try {
-            const oldScan = await history.loadScanData(previousScanSummary.id);
-            if (oldScan) {
-                const diff = DiffEngine.compareScans(oldScan, { type: 'tab-order', data: orderData });
+            // Use the new smart fetcher
+            const currentUrl = tabOrderMetadata?.url || "unknown"; // Use metadata URL which is the page URL
+            const oldScanData = await history.getLatestScanForPage('tab-order', currentUrl);
+
+            if (oldScanData) {
+                const oldScanWrapper = { type: 'tab-order', data: oldScanData };
+                const diff = DiffEngine.compareScans(oldScanWrapper, { type: 'tab-order', data: orderData });
                 if (overlayVisible) hideOverlay();
                 showDiffOverlay(diff);
                 setToastMessage('Diff Overlay loaded: Green (+), Red (-), Orange (Order Change)');
+            } else {
+                setToastMessage('No previous scan found for this URL.');
             }
         } catch (e) {
             console.error(e);
