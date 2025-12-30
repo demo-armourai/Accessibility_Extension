@@ -6,7 +6,8 @@
   "permissions": [
     "tabs",
     "scripting",
-    "storage"
+    "storage",
+    "identity"
   ],
   "devtools_page": "devtools.html",
   "host_permissions": [
