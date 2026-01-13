@@ -6,6 +6,15 @@ import DiffView from './DiffView';
 import Toast from './Toast';
 import { useAccessibility } from '../../context/AccessibilityContext';
 
+const getWCAGLevel = (results) => {
+    const allItems = [...(results?.violations || []), ...(results?.passes || []), ...(results?.incomplete || [])];
+    const tags = allItems.flatMap(item => item.tags || []);
+
+    if (tags.includes('wcag2aaa')) return 'AAA';
+    if (tags.some(tag => tag.includes('aa') && !tag.includes('aaa'))) return 'AA';
+    return 'A';
+};
+
 const buildSummary = (results, bestPracticesRuleCount = 0, bestPracticesNodeCount = 0, impacts = {}) => {
     const passed = results?.passes?.length || 0;
     const strictViolationsCount = results?.violations?.length || 0;
@@ -22,7 +31,8 @@ const buildSummary = (results, bestPracticesRuleCount = 0, bestPracticesNodeCoun
         moderate: impacts.moderate || 0,
         minor: impacts.minor || 0,
         url: results?.url || (typeof window !== 'undefined' ? window.location.href : 'Current page'),
-        timestamp: results?.timestamp || Date.now()
+        timestamp: results?.timestamp || Date.now(),
+        level: getWCAGLevel(results)
     };
 };
 
@@ -63,7 +73,6 @@ const Dashboard = ({ onTabChange }) => {
     const { loadScanData } = history;
     const { setOrderData } = tabOrder;
     const { setStructure } = structure;
-    console.log(results, 'Details')
     const hasResults = Boolean(results);
     const [toastMessage, setToastMessage] = useState(null);
     const [highlightedItemId, setHighlightedItemId] = useState(null);
@@ -176,7 +185,8 @@ const Dashboard = ({ onTabChange }) => {
         try {
             const metadata = {
                 title: document.title,
-                url: window.location.href
+                url: window.location.href,
+                level: summary.level
             };
             await history.saveScan('axe', results, metadata);
             setToastMessage('Accessibility scan saved to history!');
@@ -186,9 +196,9 @@ const Dashboard = ({ onTabChange }) => {
         }
     };
 
-    const handleLoadScan = async (id) => {
+    const handleLoadScan = async (id, type) => {
         try {
-            const scan = await loadScanData(id);
+            const scan = await loadScanData(id, type);
             if (!scan) {
                 setToastMessage('Error: Scan data not found.');
                 return;
@@ -219,9 +229,9 @@ const Dashboard = ({ onTabChange }) => {
         }
     };
 
-    const handleDiffScan = async (id) => {
+    const handleDiffScan = async (id, type) => {
         try {
-            const oldScan = await loadScanData(id);
+            const oldScan = await loadScanData(id, type);
             if (!oldScan) {
                 setToastMessage('Error: Historical scan not found.');
                 return;
@@ -276,15 +286,7 @@ const Dashboard = ({ onTabChange }) => {
                 />
             )}
 
-            {diffState ? (
-                <DiffView
-                    oldScan={diffState.oldScan}
-                    newScan={diffState.newScan}
-                    onClose={() => setDiffState(null)}
-                />
-            ) : (
-                <HistoryPanel onLoadScan={handleLoadScan} onDiffScan={handleDiffScan} />
-            )}
+
 
             {error && <p className={styles.errorMessage}>{error}</p>}
 

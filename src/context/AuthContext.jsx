@@ -73,39 +73,39 @@ export const AuthProvider = ({ children }) => {
 
 
     // 🔁 Exchange auth code → JWT
-    const exchangeCodeForToken = async (code) => {
-        try {
-            const res = await fetch(CONFIG.OAUTH.TOKEN_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code })
-            });
-
-            if (!res.ok) {
-                throw new Error(`Token exchange failed: ${res.status}`);
-            }
-
-            const data = await res.json();
-
-            if (!data.token) {
-                throw new Error('No token returned from backend');
-            }
-
-            await chrome.storage.sync.set({
-                extension_auth_token: data.token,
-                user: data.user
-            });
-
-            if (mountedRef.current) {
-                setToken(data.token);
-                setUser(data.user);
-            }
-
-            console.log('✅ Extension authenticated successfully');
-        } catch (err) {
-            console.error('❌ Token exchange error:', err);
-        }
-    };
+    /* const exchangeCodeForToken = async (code) => {
+         try {
+             const res = await fetch(CONFIG.OAUTH.TOKEN_URL, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ code })
+             });
+ 
+             if (!res.ok) {
+                 throw new Error(`Token exchange failed: ${res.status}`);
+             }
+ 
+             const data = await res.json();
+ 
+             if (!data.token) {
+                 throw new Error('No token returned from backend');
+             }
+ 
+             await chrome.storage.sync.set({
+                 extension_auth_token: data.token,
+                 user: data.user
+             });
+ 
+             if (mountedRef.current) {
+                 setToken(data.token);
+                 setUser(data.user);
+             }
+ 
+             console.log('✅ Extension authenticated successfully');
+         } catch (err) {
+             console.error('❌ Token exchange error:', err);
+         }
+     };*/
 
     // 🚪 Logout
     const logout = () => {

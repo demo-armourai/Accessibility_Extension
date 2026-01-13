@@ -9,7 +9,7 @@ const CONFIG = {
 
     APP_URL: IS_PRODUCTION
         ? 'https://armourwebcomply.duckdns.org'
-        : 'http://localhost:3000', // 🔴 BACKEND DOMAIN
+        : 'http://localhost:8080', // 🟢 FRONTEND DOMAIN
 
     OAUTH: {
         AUTHORIZE_URL: IS_PRODUCTION

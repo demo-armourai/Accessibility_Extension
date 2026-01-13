@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Children, isValidElement, cloneElement } from 'react';
 import Tabs from './Tabs';
 import { useAuth } from '../../context/AuthContext';
 import { MdLogout } from 'react-icons/md';
@@ -18,9 +18,9 @@ const Layout = ({ children }) => {
                 </button>
             </header>
             <main className={styles.content}>
-                {React.Children.map(children, child => {
-                    if (React.isValidElement(child)) {
-                        return React.cloneElement(child, {
+                {Children.map(children, child => {
+                    if (isValidElement(child)) {
+                        return cloneElement(child, {
                             activeTab,
                             onTabChange: setActiveTab // Pass the setter
                         });

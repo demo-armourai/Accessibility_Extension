@@ -38,21 +38,21 @@ const HistoryPanel = ({ onLoadScan, onDiffScan }) => {
                         </div>
                         <div className={styles.historyActions}>
                             <button
-                                onClick={() => onLoadScan(scan.id)}
+                                onClick={() => onLoadScan(scan.id, scan.type)}
                                 className={styles.actionBtn}
                                 title="Load this scan"
                             >
                                 📂
                             </button>
                             <button
-                                onClick={() => onDiffScan(scan.id)}
+                                onClick={() => onDiffScan(scan.id, scan.type)}
                                 className={styles.actionBtn}
                                 title="Compare with current"
                             >
                                 ⚖️
                             </button>
                             <button
-                                onClick={() => deleteScan(scan.id)}
+                                onClick={() => deleteScan(scan.id, scan.type)}
                                 className={`${styles.actionBtn} ${styles.deleteBtn}`}
                                 title="Delete scan"
                             >

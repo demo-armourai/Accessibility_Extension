@@ -21,56 +21,96 @@ export const AccessibilityProvider = ({ children }) => {
 
     // History State
     const [scanHistory, setScanHistory] = useState([]);
+    // Cooldown State: { [url]: lastSaveTimestamp }
+    const [cooldowns, setCooldowns] = useState({});
 
-    // Load initial history
+    // Load initial history and cooldowns
     useEffect(() => {
-        // TODO: fetching from DB if logged in
-        ScanStorage.getScans().then(setScanHistory).catch(console.error);
-    }, []);
+        if (token) {
+            ScanStorage.getScans(token).then(setScanHistory).catch(console.error);
+        } else {
+            setScanHistory([]);
+        }
+
+        // Load cooldowns from storage
+        chrome.storage.local.get(['save_cooldowns'], (result) => {
+            if (result.save_cooldowns) {
+                setCooldowns(result.save_cooldowns);
+            }
+        });
+    }, [token]);
 
     const refreshHistory = useCallback(async () => {
-        // TODO: fetch from DB if logged in
-        const history = await ScanStorage.getScans();
-        setScanHistory(history);
-    }, []);
+        if (token) {
+            const history = await ScanStorage.getScans(token);
+            setScanHistory(history);
+        }
+    }, [token]);
 
     const saveScan = useCallback(async (type, data, metadata = {}) => {
+        const url = metadata.url || (typeof window !== 'undefined' ? window.location.href : '');
+
+        // Cooldown check
+        const lastSave = cooldowns[url] || 0;
+        const now = Date.now();
+        const remaining = Math.max(0, 60 - Math.floor((now - lastSave) / 1000));
+
+        if (remaining > 0) {
+            alert(`Please wait ${remaining}s before saving again for this URL.`);
+            return;
+        }
+
         const viewport = {
             width: window.innerWidth,
             height: window.innerHeight
         };
 
-        // Always save locally first (ensures we have a copy even if offline/upload fails)
-        try {
-            await ScanStorage.saveScan(type, data, metadata);
-        } catch (localErr) {
-            console.error('Failed to save locally:', localErr);
-        }
-
-        // Then try uploading if authenticated
+        // Try uploading if authenticated
         if (user && token) {
             try {
                 await ScanStorage.uploadScan(type, data, metadata, viewport, token);
                 console.log('✅ Scan uploaded to backend');
+
+                // Update cooldown
+                const updatedCooldowns = { ...cooldowns, [url]: Date.now() };
+                setCooldowns(updatedCooldowns);
+                chrome.storage.local.set({ save_cooldowns: updatedCooldowns });
+
+                await refreshHistory();
             } catch (error) {
                 console.error('❌ Failed to upload scan:', error);
-                alert('Warning: Scan saved locally but failed to upload to server. ' + error.message);
+
+                // If it's a 429, the server might have rejected it even if frontend didn't know
+                if (error.message.includes('Too Many Requests') || error.message.includes('429')) {
+                    const updatedCooldowns = { ...cooldowns, [url]: Date.now() };
+                    setCooldowns(updatedCooldowns);
+                    chrome.storage.local.set({ save_cooldowns: updatedCooldowns });
+                }
+
+                alert('Error: Failed to upload scan to server. ' + error.message);
             }
+        } else {
+            alert('Please log in to save scans to your history.');
         }
+    }, [refreshHistory, user, token, cooldowns]);
 
-        await refreshHistory();
-    }, [refreshHistory, user, token]);
+    const getRemainingCooldown = useCallback((url) => {
+        const lastSave = cooldowns[url] || 0;
+        const now = Date.now();
+        return Math.max(0, 60 - Math.floor((now - lastSave) / 1000));
+    }, [cooldowns]);
 
-    const deleteScan = useCallback(async (id) => {
-        await ScanStorage.deleteScan(id);
-        await refreshHistory();
-    }, [refreshHistory]);
+    const deleteScan = useCallback(async (id, type) => {
+        if (token) {
+            await ScanStorage.deleteScan(id, type, token);
+            await refreshHistory();
+        }
+    }, [refreshHistory, token]);
 
-    // Function to load a scan into the view (to be passed to specific contexts if needed, 
-    // or handled by components directly calling context)
-    const loadScanData = useCallback(async (id) => {
-        return await ScanStorage.getScan(id);
-    }, []);
+    // Function to load a scan into the view
+    const loadScanData = useCallback(async (id, type) => {
+        return await ScanStorage.getScan(id, type, token);
+    }, [token]);
 
     const getLatestScanForPage = useCallback(async (type, url) => {
         console.log('Fetching latest scan for', type, url);
@@ -92,19 +132,8 @@ export const AccessibilityProvider = ({ children }) => {
                     return data;
                 }
             } catch (e) {
-                console.error('Backend fetch failed, falling back to local', e);
+                console.error('Backend fetch failed:', e);
             }
-        }
-
-        // 2. Fallback to Local History
-        const localHistory = await ScanStorage.getScans();
-        const match = localHistory
-            .filter(s => s.type === type && (s.url === url || s.url.replace(/\/$/, '') === url.replace(/\/$/, '')))
-            .sort((a, b) => b.timestamp - a.timestamp)[0];
-
-        if (match) {
-            const fullScan = await ScanStorage.getScan(match.id);
-            return fullScan ? fullScan.data : null;
         }
 
         return null;
@@ -163,7 +192,8 @@ export const AccessibilityProvider = ({ children }) => {
             deleteScan,
             loadScanData,
             refreshHistory,
-            getLatestScanForPage
+            getLatestScanForPage,
+            getRemainingCooldown
         }
     };
 

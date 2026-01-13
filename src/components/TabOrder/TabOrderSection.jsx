@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styles from './TabOrder.module.css';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import TabOrderInfo from './TabOrderInfo';
@@ -14,8 +14,9 @@ const TabOrderSection = () => {
         runTabOrderScan, showOverlay, hideOverlay, showDiffOverlay, hideDiffOverlay,
         highlightElement, tabOrderMetadata, setOrderData, setTabOrderMetadata
     } = tabOrder;
-    const { saveScan, scanHistory } = history;
-    const [toastMessage, setToastMessage] = React.useState(null);
+    const { saveScan, scanHistory, getRemainingCooldown } = history;
+    const [toastMessage, setToastMessage] = useState(null);
+    const [cooldown, setCooldown] = useState(0);
     const hasData = Boolean(orderData && orderData.length > 0);
 
     useEffect(() => {
@@ -31,6 +32,19 @@ const TabOrderSection = () => {
             if (isDiffOverlayVisible) hideDiffOverlay();
         };
     }, [overlayVisible, isDiffOverlayVisible, hideOverlay, hideDiffOverlay]);
+
+    // Cooldown timer
+    useEffect(() => {
+        const url = tabOrderMetadata?.url || window.location.href;
+        const updateCooldown = () => {
+            const remaining = getRemainingCooldown(url);
+            setCooldown(remaining);
+        };
+
+        updateCooldown();
+        const interval = setInterval(updateCooldown, 1000);
+        return () => clearInterval(interval);
+    }, [getRemainingCooldown, tabOrderMetadata?.url]);
 
     const handleToggleOverlay = () => {
         if (overlayVisible) {
@@ -140,13 +154,16 @@ const TabOrderSection = () => {
                                 className={styles.overlayBtn}
                                 type="button"
                                 onClick={handleSaveScan}
+                                disabled={cooldown > 0}
                                 style={{
-                                    backgroundColor: '#fff',
+                                    backgroundColor: cooldown > 0 ? '#f5f5f5' : '#fff',
                                     border: '1px solid #ccc',
-                                    color: '#333'
+                                    color: cooldown > 0 ? '#999' : '#333',
+                                    cursor: cooldown > 0 ? 'not-allowed' : 'pointer',
+                                    minWidth: '80px'
                                 }}
                             >
-                                💾 Save
+                                {cooldown > 0 ? `Wait ${cooldown}s` : '💾 Save'}
                             </button>
                             <button
                                 className={styles.overlayBtn}

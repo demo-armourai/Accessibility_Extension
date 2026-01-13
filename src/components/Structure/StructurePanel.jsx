@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styles from './StructurePanel.module.css';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import Toast from '../Dashboard/Toast';
@@ -20,11 +20,12 @@ const StructurePanel = () => {
         showStructureDiffOverlay
     } = structureContext;
     const { clearHighlights } = axe;
-    const { saveScan, scanHistory, loadScanData } = history;
+    const { saveScan, scanHistory, loadScanData, getRemainingCooldown } = history;
     const { setStructure } = structureContext;
-    const [toastMessage, setToastMessage] = React.useState(null);
+    const [toastMessage, setToastMessage] = useState(null);
+    const [cooldown, setCooldown] = useState(0);
 
-    const [isOverlayVisible, setIsOverlayVisible] = React.useState(false);
+    const [isOverlayVisible, setIsOverlayVisible] = useState(false);
 
     useEffect(() => {
         // Run structure scan when component mounts
@@ -46,6 +47,19 @@ const StructurePanel = () => {
             // setIsOverlayVisible(true);
         }
     }, [structure, showStructureBadges]);
+
+    // Cooldown timer
+    useEffect(() => {
+        const url = structureMetadata?.url || window.location.href;
+        const updateCooldown = () => {
+            const remaining = getRemainingCooldown(url);
+            setCooldown(remaining);
+        };
+
+        updateCooldown();
+        const interval = setInterval(updateCooldown, 1000);
+        return () => clearInterval(interval);
+    }, [getRemainingCooldown, structureMetadata?.url]);
 
     const toggleOverlay = () => {
         if (isOverlayVisible) {
@@ -153,8 +167,16 @@ const StructurePanel = () => {
                     <button
                         onClick={handleSaveScan}
                         className={styles.overlayBtn}
+                        disabled={cooldown > 0}
+                        style={{
+                            backgroundColor: cooldown > 0 ? '#f5f5f5' : '#fff',
+                            border: '1px solid #ccc',
+                            color: cooldown > 0 ? '#999' : '#333',
+                            cursor: cooldown > 0 ? 'not-allowed' : 'pointer',
+                            minWidth: '80px'
+                        }}
                     >
-                        💾 Save
+                        {cooldown > 0 ? `Wait ${cooldown}s` : '💾 Save'}
                     </button>
                     <button
                         onClick={runStructureScan}

@@ -22,6 +22,7 @@ export const useAxeRunner = () => {
                 return;
             }
             setResults(response.results);
+
         });
     }, []);
 

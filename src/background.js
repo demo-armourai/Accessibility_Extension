@@ -101,6 +101,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                             });
 
                             console.log('✅ [Axe Extension] Authenticated successfully via chrome.identity');
+                            console.log('[Axe Extension] Token:', data.token.substring(0, 10) + '...');
+                            console.log('[Axe Extension] User:', data.user.username);
                         } else {
                             throw new Error('No token or user received from backend');
                         }

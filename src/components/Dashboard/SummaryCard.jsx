@@ -1,15 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './Dashboard.module.css';
+import { useAccessibility } from '../../context/AccessibilityContext';
 
 const percentage = (value, total) => (total === 0 ? 0 : Math.round((value / total) * 100));
 
 
 
 const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, showBestPractices, toggleBestPractices }) => {
+    const { history } = useAccessibility();
+    const { getRemainingCooldown } = history;
+    const [cooldown, setCooldown] = useState(0);
+
     const passedPercent = percentage(summary.passed, summary.total_tests);
     const chartStyle = {
         backgroundImage: `conic-gradient(var(--green) 0 ${passedPercent}%, var(--orange) ${passedPercent}% 100%)`
     };
+
+    // Cooldown timer
+    useEffect(() => {
+        const url = summary.url || (typeof window !== 'undefined' ? window.location.href : '');
+        const updateCooldown = () => {
+            const remaining = getRemainingCooldown(url);
+            setCooldown(remaining);
+        };
+
+        updateCooldown();
+        const interval = setInterval(updateCooldown, 1000);
+        return () => clearInterval(interval);
+    }, [getRemainingCooldown, summary.url]);
 
     // Calculate total issues based on toggle state
     const totalIssuesWithoutBP = summary.minor + summary.moderate + summary.serious + summary.critical;
@@ -21,7 +39,7 @@ const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, showBestPract
             <div className={styles['summary-header']}>
                 <p className={styles['summary-title']}>Accessibility Rules Tested: {summary.total_tests}</p>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <span className={styles.badge}>WCAG 2.1 AA</span>
+                    <span className={styles.badge}>WCAG {summary.level || 'A'}</span>
                 </div>
             </div>
 
@@ -120,8 +138,19 @@ const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, showBestPract
                     </div>
                 </div>
                 <div className={styles['summary-buttons']}>
-                    <button className={`${styles.btn} ${styles['btn-secondary']}`} onClick={onSave} style={{ gap: '6px' }}>
-                        💾 Save
+                    <button
+                        className={`${styles.btn} ${styles['btn-secondary']}`}
+                        onClick={onSave}
+                        style={{
+                            gap: '6px',
+                            backgroundColor: cooldown > 0 ? '#f8fafc' : '',
+                            color: cooldown > 0 ? '#94a3b8' : '',
+                            cursor: cooldown > 0 ? 'not-allowed' : 'pointer',
+                            minWidth: '94px'
+                        }}
+                        disabled={cooldown > 0}
+                    >
+                        {cooldown > 0 ? `Wait ${cooldown}s` : '💾 Save'}
                     </button>
                     <button className={`${styles.btn} ${styles['btn-secondary']}`} onClick={onReRun}>
                         Re-run Tests
