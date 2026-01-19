@@ -28,8 +28,10 @@ const StructurePanel = () => {
     const [isOverlayVisible, setIsOverlayVisible] = useState(false);
 
     useEffect(() => {
-        // Run structure scan when component mounts
-        runStructureScan();
+        // Run structure scan when component mounts ONLY if needed
+        if (!structure && !isLoadingStructure) {
+            runStructureScan();
+        }
 
         // Cleanup: Clear highlights when panel unmounts
         return () => {
@@ -164,7 +166,7 @@ const StructurePanel = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <div className={styles.title} style={{ marginBottom: 0, borderBottom: 'none' }}>Structure</div> {/* Remove border/margin from title wrapper for alignment */}
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
+                    {/* <button
                         onClick={handleSaveScan}
                         className={styles.overlayBtn}
                         disabled={cooldown > 0}
@@ -176,25 +178,18 @@ const StructurePanel = () => {
                             minWidth: '80px'
                         }}
                     >
-                        {cooldown > 0 ? `Wait ${cooldown}s` : '💾 Save'}
-                    </button>
-                    <button
-                        onClick={runStructureScan}
-                        className={styles.overlayBtn}
-                    >
-                        🔄 Re-run Scan
-                    </button>
+                        {cooldown > 0 ? `Wait ${cooldown}s` : '💾 Save'}*/}
                     <button
                         onClick={toggleOverlay}
                         className={`${styles.overlayBtn} ${isOverlayVisible ? styles.overlayBtnActive : ''}`}
                     >
-                        {isOverlayVisible ? '👁️ Hide Overlay' : '👁️ Show Overlay'}
+                        {isOverlayVisible ? 'Hide Overlay' : 'Show Overlay'}
                     </button>
                     <button
                         onClick={handleComparePrevious}
                         className={`${styles.overlayBtn} ${isDiffOverlayVisible ? styles.overlayBtnActive : ''}`}
                     >
-                        {isDiffOverlayVisible ? '📊 Hide Compare' : '📊 Compare'}
+                        {isDiffOverlayVisible ? 'Hide Compare' : 'Compare'}
                     </button>
                 </div>
             </div>

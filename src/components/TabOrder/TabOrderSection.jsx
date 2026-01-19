@@ -139,7 +139,7 @@ const TabOrderSection = () => {
                                 color: '#333'
                             }}
                         >
-                            {isDiffOverlayVisible ? '📊 Hide Compare' : '📊 Compare with Previous'}
+                            {isDiffOverlayVisible ? 'Hide Compare' : 'Compare with Previous'}
                         </button>
                     </div>
                 </div>
@@ -150,7 +150,7 @@ const TabOrderSection = () => {
                     <div className={styles.headerSection}>
                         <h2 className={styles.sectionTitle}>Order</h2>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
+                            {/* <button
                                 className={styles.overlayBtn}
                                 type="button"
                                 onClick={handleSaveScan}
@@ -164,37 +164,20 @@ const TabOrderSection = () => {
                                 }}
                             >
                                 {cooldown > 0 ? `Wait ${cooldown}s` : '💾 Save'}
-                            </button>
-                            <button
-                                className={styles.overlayBtn}
-                                type="button"
-                                onClick={runTabOrderScan}
-                                style={{
-                                    backgroundColor: 'transparent',
-                                    border: '1px solid #ccc',
-                                    color: '#333'
-                                }}
-                            >
-                                🔄 Re-run Scan
-                            </button>
+                            </button>*/}
                             <button
                                 className={`${styles.overlayBtn} ${overlayVisible ? styles.overlayBtnActive : ''}`}
                                 type="button"
                                 onClick={handleToggleOverlay}
                             >
-                                {overlayVisible ? '👁️ Hide Overlay' : '👁️ Show Overlay'}
+                                {overlayVisible ? 'Hide Overlay' : 'Show Overlay'}
                             </button>
                             <button
                                 className={`${styles.overlayBtn} ${isDiffOverlayVisible ? styles.overlayBtnActive : ''}`}
                                 type="button"
                                 onClick={handleComparePrevious}
-                                style={isDiffOverlayVisible ? {} : {
-                                    backgroundColor: '#fff',
-                                    border: '1px solid #ccc',
-                                    color: '#333'
-                                }}
                             >
-                                {isDiffOverlayVisible ? '📊 Hide Compare' : '📊 Compare with Previous'}
+                                {isDiffOverlayVisible ? 'Hide Compare' : 'Compare with Previous'}
                             </button>
                         </div>
                     </div>

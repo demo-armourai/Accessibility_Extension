@@ -53,9 +53,12 @@ const ContrastSummary = ({ violations = [], passes = [], highlightTargetsContras
     const violationPairs = extractColorData(violations, true);
     const passPairs = extractColorData(passes, false);
 
-    // Combine, filter, and sort
-    const allPairs = [...violationPairs, ...passPairs]
-        .filter(pair => pair.fg && pair.bg && !isNaN(pair.ratio)) // Filter invalid data
+    // Combine all pairs (Unfiltered)
+    const unfilteredPairs = [...violationPairs, ...passPairs]
+        .filter(pair => pair.fg && pair.bg && !isNaN(pair.ratio)); // Filter invalid data
+
+    // Apply Filter for the list view
+    const allPairs = unfilteredPairs
         .filter(pair => {
             if (filter === 'aa') return !pair.aa;
             if (filter === 'aaa') return !pair.aaa;
@@ -84,8 +87,9 @@ const ContrastSummary = ({ violations = [], passes = [], highlightTargetsContras
         return { passed: passedCount, failed: failedCount, total, percentage };
     };
 
-    const aaStats = calculateStatsFromPairs(allPairs, 'aa');
-    const aaaStats = calculateStatsFromPairs(allPairs, 'aaa');
+    // Calculate stats from UNFILTERED data so charts don't change
+    const aaStats = calculateStatsFromPairs(unfilteredPairs, 'aa');
+    const aaaStats = calculateStatsFromPairs(unfilteredPairs, 'aaa');
 
     const renderPieChart = (stats) => {
         const degree = (stats.percentage / 100) * 360;
@@ -139,12 +143,6 @@ const ContrastSummary = ({ violations = [], passes = [], highlightTargetsContras
             <div className={styles.checkerSection}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                     <h3 style={{ margin: 0 }}>Contrast Summary</h3>
-                    <button
-                        onClick={onReRun}
-                        className={styles.overlayBtn}
-                    >
-                        🔄 Re-run Scan
-                    </button>
                 </div>
                 <p className={styles.description}>WCAG compliance statistics for tested pairs</p>
 

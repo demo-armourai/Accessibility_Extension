@@ -138,7 +138,7 @@ const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, showBestPract
                     </div>
                 </div>
                 <div className={styles['summary-buttons']}>
-                    <button
+                    {/* <button
                         className={`${styles.btn} ${styles['btn-secondary']}`}
                         onClick={onSave}
                         style={{
@@ -151,10 +151,7 @@ const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, showBestPract
                         disabled={cooldown > 0}
                     >
                         {cooldown > 0 ? `Wait ${cooldown}s` : '💾 Save'}
-                    </button>
-                    <button className={`${styles.btn} ${styles['btn-secondary']}`} onClick={onReRun}>
-                        Re-run Tests
-                    </button>
+                    </button>*/}
                     <button className={`${styles.btn} ${styles['icon-btn']}`} onClick={onDownloadReport} aria-label="Download accessibility report">
                         <span className={styles['download-icon']} aria-hidden="true">⬇</span>
                         <span>Download JSON</span>

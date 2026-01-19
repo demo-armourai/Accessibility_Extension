@@ -19,6 +19,29 @@ export const AccessibilityProvider = ({ children }) => {
 
     const { user, token } = useAuth(); // Get auth state
 
+    // Auto-run all scans when the extension opens
+    useEffect(() => {
+        console.log('🚀 Extension opened: Triggering all auto-scans...');
+
+        // 1. Axe (Compliance) Scan
+        if (!axeData.results && !axeData.isScanning) {
+            console.log('Triggering Axe scan...');
+            axeData.runScan();
+        }
+
+        // 2. Structure Scan
+        if (!structureData.structure && !structureData.isLoadingStructure) {
+            console.log('Triggering Structure scan...');
+            structureData.runStructureScan();
+        }
+
+        // 3. Tab Order Scan
+        if (!tabOrderData.orderData && !tabOrderData.isScanningTabOrder) {
+            console.log('Triggering Tab Order scan...');
+            tabOrderData.runTabOrderScan();
+        }
+    }, []); // Run once on mount
+
     // History State
     const [scanHistory, setScanHistory] = useState([]);
     // Cooldown State: { [url]: lastSaveTimestamp }
@@ -139,6 +162,64 @@ export const AccessibilityProvider = ({ children }) => {
         return null;
     }, [user, token]);
 
+    // Global Run All
+    const runAllScans = useCallback(() => {
+        console.log('🔄 Triggering Global Re-run...');
+        axeData.runScan();
+        structureData.runStructureScan();
+        tabOrderData.runTabOrderScan();
+    }, [axeData, structureData, tabOrderData]);
+
+    // Global Save All
+    const saveAllScans = useCallback(async () => {
+        if (!user || !token) {
+            alert('Please log in to save scans.');
+            return;
+        }
+
+        console.log('💾 Triggering Global Save...');
+        const url = window.location.href;
+        const title = document.title;
+        const metadata = { url, title };
+
+        let savedCount = 0;
+        const errors = [];
+
+        // 1. Save Axe
+        if (axeData.results) {
+            try {
+                await saveScan('axe', axeData.results, metadata);
+                savedCount++;
+            } catch (e) { errors.push('Axe: ' + e.message); }
+        }
+
+        // 2. Save Structure
+        if (structureData.structure) {
+            try {
+                // Structure data is the array itself
+                await saveScan('structure', structureData.structure, metadata);
+                savedCount++;
+            } catch (e) { errors.push('Structure: ' + e.message); }
+        }
+
+        // 3. Save Tab Order
+        if (tabOrderData.orderData) {
+            try {
+                // Tab order data is the array itself
+                await saveScan('tab-order', tabOrderData.orderData, metadata);
+                savedCount++;
+            } catch (e) { errors.push('Tab Order: ' + e.message); }
+        }
+
+        if (errors.length > 0) {
+            alert(`Saved ${savedCount} scans. Errors:\n${errors.join('\n')}`);
+        } else if (savedCount === 0) {
+            alert('No scan data found to save. Please run scans first.');
+        } else {
+            alert(`✅ Successfully saved all ${savedCount} scans!`);
+        }
+    }, [user, token, axeData.results, structureData.structure, tabOrderData.orderData, saveScan]);
+
     // Combine all into a single context value
     const contextValue = {
         // Axe runner data (for Details and Contrast sections)
@@ -194,7 +275,10 @@ export const AccessibilityProvider = ({ children }) => {
             refreshHistory,
             getLatestScanForPage,
             getRemainingCooldown
-        }
+        },
+        // Global Actions
+        runAllScans,
+        saveAllScans
     };
 
     return (
