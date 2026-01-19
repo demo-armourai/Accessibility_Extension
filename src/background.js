@@ -38,77 +38,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 // Store state
                 await chrome.storage.local.set({ oauth_state: state });
 
-                // Build Auth URL
-                const redirectUri = chrome.identity.getRedirectURL();
+                // Build Auth URL - point to our internal success page
+                const redirectUri = chrome.runtime.getURL('auth-success.html');
                 const authUrl = new URL(CONFIG.OAUTH.AUTHORIZE_URL);
                 authUrl.searchParams.set('redirect_uri', redirectUri);
                 authUrl.searchParams.set('state', state);
 
-                console.log('[Axe Extension] Starting WebAuthFlow:', authUrl.toString());
+                console.log('[Axe Extension] Opening Auth Tab:', authUrl.toString());
 
-                // Launch WebAuthFlow
-                chrome.identity.launchWebAuthFlow({
-                    url: authUrl.toString(),
-                    interactive: true
-                }, async (redirectUrl) => {
-                    if (chrome.runtime.lastError || !redirectUrl) {
-                        console.error('❌ [Axe Extension] WebAuthFlow failed:', chrome.runtime.lastError);
-                        // We can't easily sendResponse here because it might have timed out
-                        // But AuthContext will see no change in storage.
+                // Open page in a new tab instead of external window
+                chrome.tabs.create({ url: authUrl.toString() }, async (tab) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('❌ [Axe Extension] Failed to open tab:', chrome.runtime.lastError);
                         return;
                     }
-
-                    console.log('[Axe Extension] WebAuthFlow success, redirect URL:', redirectUrl);
-
-                    try {
-                        const url = new URL(redirectUrl);
-                        const code = url.searchParams.get('code');
-                        const returnedState = url.searchParams.get('state');
-
-                        // Validate state
-                        const { oauth_state } = await chrome.storage.local.get('oauth_state');
-                        if (!oauth_state || returnedState !== oauth_state) {
-                            throw new Error('State mismatch');
-                        }
-
-                        // Clean up state
-                        await chrome.storage.local.remove('oauth_state');
-
-                        if (!code) {
-                            throw new Error('No authorization code received');
-                        }
-
-                        console.log('[Axe Extension] Code received, exchanging for token...');
-
-                        // Exchange code for token
-                        const response = await fetch(CONFIG.OAUTH.TOKEN_URL, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ code })
-                        });
-
-                        if (!response.ok) {
-                            throw new Error(`Token exchange failed: ${response.status}`);
-                        }
-
-                        const data = await response.json();
-
-                        if (data.token && data.user) {
-                            // Store token/user - this will trigger AuthContext update
-                            await chrome.storage.sync.set({
-                                extension_auth_token: data.token,
-                                user: data.user
-                            });
-
-                            console.log('✅ [Axe Extension] Authenticated successfully via chrome.identity');
-                            console.log('[Axe Extension] Token:', data.token.substring(0, 10) + '...');
-                            console.log('[Axe Extension] User:', data.user.username);
-                        } else {
-                            throw new Error('No token or user received from backend');
-                        }
-                    } catch (err) {
-                        console.error('❌ [Axe Extension] Token exchange error:', err);
-                    }
+                    // Store tab ID for cleanup in EXTENSION_AUTH_SUCCESS
+                    await chrome.storage.local.set({ auth_tab_id: tab.id });
                 });
 
                 sendResponse({ ok: true });

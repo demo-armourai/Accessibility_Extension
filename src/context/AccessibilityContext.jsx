@@ -216,14 +216,3 @@ export const useAccessibility = () => {
     return context;
 };
 
-/**
- * Legacy hook for backward compatibility with existing code
- * @deprecated Use useAccessibility().axe instead
- */
-export const useRunner = () => {
-    const context = useContext(AccessibilityContext);
-    if (!context) {
-        throw new Error('useRunner must be used within an AccessibilityProvider');
-    }
-    return context.axe;
-};

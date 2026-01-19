@@ -45,10 +45,6 @@ const AuthWrapper = () => {
   );
 };
 
-const Placeholder = ({ message }) => (
-  <div style={{ padding: 20, textAlign: 'center' }}>{message}</div>
-);
-
 const Content = ({ activeTab, onTabChange }) => {
   switch (activeTab) {
     case 'details':

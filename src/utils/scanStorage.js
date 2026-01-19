@@ -25,11 +25,6 @@ export const ScanStorage = {
 
             const results = data;
 
-            const WCAG_TAGS = [
-                "wcag2a", "wcag21a", "wcag22a",
-                "wcag2aa", "wcag21aa", "wcag22aa",
-                "wcag2aaa"
-            ];
 
             // ✅ FIXED WCAG LEVEL EXTRACTION
             const getWCAGLevel = (tags = []) => {
