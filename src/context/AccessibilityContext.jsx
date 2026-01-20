@@ -71,16 +71,8 @@ export const AccessibilityProvider = ({ children }) => {
     }, [token]);
 
     const saveScan = useCallback(async (type, data, metadata = {}) => {
-        const url = metadata.url || (typeof window !== 'undefined' ? window.location.href : '');
-
-        // Cooldown check
-        const lastSave = cooldowns[url] || 0;
-        const now = Date.now();
-        const remaining = Math.max(0, 60 - Math.floor((now - lastSave) / 1000));
-
-        if (remaining > 0) {
-            alert(`Please wait ${remaining}s before saving again for this URL.`);
-            return;
+        if (!user || !token) {
+            throw new Error('Not authenticated');
         }
 
         const viewport = {
@@ -88,34 +80,9 @@ export const AccessibilityProvider = ({ children }) => {
             height: window.innerHeight
         };
 
-        // Try uploading if authenticated
-        if (user && token) {
-            try {
-                await ScanStorage.uploadScan(type, data, metadata, viewport, token);
-                console.log('✅ Scan uploaded to backend');
-
-                // Update cooldown
-                const updatedCooldowns = { ...cooldowns, [url]: Date.now() };
-                setCooldowns(updatedCooldowns);
-                chrome.storage.local.set({ save_cooldowns: updatedCooldowns });
-
-                await refreshHistory();
-            } catch (error) {
-                console.error('❌ Failed to upload scan:', error);
-
-                // If it's a 429, the server might have rejected it even if frontend didn't know
-                if (error.message.includes('Too Many Requests') || error.message.includes('429')) {
-                    const updatedCooldowns = { ...cooldowns, [url]: Date.now() };
-                    setCooldowns(updatedCooldowns);
-                    chrome.storage.local.set({ save_cooldowns: updatedCooldowns });
-                }
-
-                alert('Error: Failed to upload scan to server. ' + error.message);
-            }
-        } else {
-            alert('Please log in to save scans to your history.');
-        }
-    }, [refreshHistory, user, token, cooldowns]);
+        await ScanStorage.uploadScan(type, data, metadata, viewport, token);
+        await refreshHistory();
+    }, [user, token, refreshHistory]);
 
     const getRemainingCooldown = useCallback((url) => {
         const lastSave = cooldowns[url] || 0;
@@ -177,48 +144,45 @@ export const AccessibilityProvider = ({ children }) => {
             return;
         }
 
-        console.log('💾 Triggering Global Save...');
         const url = window.location.href;
         const title = document.title;
-        const metadata = { url, title };
 
-        let savedCount = 0;
-        const errors = [];
+        const lastSave = cooldowns[url] || 0;
+        const now = Date.now();
+        const remaining = Math.max(0, 60 - Math.floor((now - lastSave) / 1000));
 
-        // 1. Save Axe
-        if (axeData.results) {
-            try {
-                await saveScan('axe', axeData.results, metadata);
-                savedCount++;
-            } catch (e) { errors.push('Axe: ' + e.message); }
+        if (remaining > 0) {
+            alert(`Please wait ${remaining}s before saving again.`);
+            return;
         }
 
-        // 2. Save Structure
-        if (structureData.structure) {
-            try {
-                // Structure data is the array itself
-                await saveScan('structure', structureData.structure, metadata);
-                savedCount++;
-            } catch (e) { errors.push('Structure: ' + e.message); }
+        if (!axeData.results || !structureData.structure || !tabOrderData.orderData) {
+            alert('Please run all scans before saving.');
+            return;
         }
 
-        // 3. Save Tab Order
-        if (tabOrderData.orderData) {
-            try {
-                // Tab order data is the array itself
-                await saveScan('tab-order', tabOrderData.orderData, metadata);
-                savedCount++;
-            } catch (e) { errors.push('Tab Order: ' + e.message); }
-        }
+        try {
+            await saveScan('axe', axeData.results, { url, title });
+            await saveScan('structure', structureData.structure, { url, title });
+            await saveScan('tab-order', tabOrderData.orderData, { url, title });
 
-        if (errors.length > 0) {
-            alert(`Saved ${savedCount} scans. Errors:\n${errors.join('\n')}`);
-        } else if (savedCount === 0) {
-            alert('No scan data found to save. Please run scans first.');
-        } else {
-            alert(`✅ Successfully saved all ${savedCount} scans!`);
+            const updatedCooldowns = { ...cooldowns, [url]: now };
+            setCooldowns(updatedCooldowns);
+            chrome.storage.local.set({ save_cooldowns: updatedCooldowns });
+
+            alert('✅ All scans saved successfully');
+        } catch (err) {
+            alert(`❌ Failed to save scans: ${err.message}`);
         }
-    }, [user, token, axeData.results, structureData.structure, tabOrderData.orderData, saveScan]);
+    }, [
+        user,
+        token,
+        cooldowns,
+        axeData.results,
+        structureData.structure,
+        tabOrderData.orderData,
+        saveScan
+    ]);
 
     // Combine all into a single context value
     const contextValue = {
