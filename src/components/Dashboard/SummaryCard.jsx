@@ -6,7 +6,7 @@ const percentage = (value, total) => (total === 0 ? 0 : Math.round((value / tota
 
 
 
-const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, showBestPractices, toggleBestPractices }) => {
+const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, onDownloadExcel, showBestPractices, toggleBestPractices }) => {
     const { history } = useAccessibility();
     const { getRemainingCooldown } = history;
     const [cooldown, setCooldown] = useState(0);
@@ -152,9 +152,23 @@ const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, showBestPract
                     >
                         {cooldown > 0 ? `Wait ${cooldown}s` : '💾 Save'}
                     </button>*/}
-                    <button className={`${styles.btn} ${styles['icon-btn']}`} onClick={onDownloadReport} aria-label="Download accessibility report">
+                    <button
+                        type="button"
+                        className={`${styles.btn} ${styles['icon-btn']}`}
+                        onClick={onDownloadReport}
+                        aria-label="Download accessibility report as JSON"
+                    >
                         <span className={styles['download-icon']} aria-hidden="true">⬇</span>
                         <span>Download JSON</span>
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.btn} ${styles['icon-btn']}`}
+                        onClick={onDownloadExcel}
+                        aria-label="Download accessibility violations report as Excel"
+                    >
+                        <span className={styles['download-icon']} aria-hidden="true">⬇</span>
+                        <span>Download Excel</span>
                     </button>
                 </div>
             </div>

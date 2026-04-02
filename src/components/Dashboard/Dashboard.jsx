@@ -5,6 +5,7 @@ import HistoryPanel from './HistoryPanel';
 import DiffView from './DiffView';
 import Toast from './Toast';
 import { useAccessibility } from '../../context/AccessibilityContext';
+import { downloadAxeReportExcel } from '../../utils/axeReportExcel';
 
 const getWCAGLevel = (results) => {
     const allItems = [...(results?.violations || []), ...(results?.passes || []), ...(results?.incomplete || [])];
@@ -180,6 +181,11 @@ const Dashboard = ({ onTabChange }) => {
         URL.revokeObjectURL(url);
     };
 
+    const handleDownloadExcel = () => {
+        if (!results) return;
+        downloadAxeReportExcel(results);
+    };
+
     const handleSaveScan = async () => {
         if (!results) return;
         try {
@@ -280,6 +286,7 @@ const Dashboard = ({ onTabChange }) => {
                     onReRun={runScan}
                     onSave={handleSaveScan}
                     onDownloadReport={handleDownloadReport}
+                    onDownloadExcel={handleDownloadExcel}
                     highlightedItemId={highlightedItemId}
                     showBestPractices={showBestPractices}
                     setShowBestPractices={setShowBestPractices}
