@@ -196,7 +196,9 @@ export const AccessibilityProvider = ({ children }) => {
             clearHighlights: axeData.clearHighlights,
             highlightTargetsContrast: axeData.highlightTargetsContrast,
             clearHighlightsContrast: axeData.clearHighlightsContrast,
-            toggleHighlight: axeData.toggleHighlight
+            toggleHighlight: axeData.toggleHighlight,
+            highlightAll: axeData.highlightAll,
+            clearTealHighlights: axeData.clearTealHighlights
         },
         // Tab order data (for Order section)
         tabOrder: {

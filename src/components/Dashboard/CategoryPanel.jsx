@@ -12,18 +12,31 @@ const CategoryPanel = ({
     onPrev,
     onNext,
     onHighlight,
-    highlightedItemId
+    highlightedItemId,
+    onHighlightGroup,
+    isGroupHighlighted
 }) => (
     <div className={styles['category-panel']}>
-        <button className={styles['category-header']} aria-expanded={isOpen} onClick={onToggle} type="button">
-            <span>{title}</span>
-            <div className={styles['count-group']}>
-                <span className={styles['count-pill']}>{count}</span>
-                <span className={`${styles.chevron} ${isOpen ? styles.open : ''}`} aria-hidden>
-                    ▾
-                </span>
-            </div>
-        </button>
+        <div className={styles['category-header-wrapper']}>
+            <button className={styles['category-header']} aria-expanded={isOpen} onClick={onToggle} type="button">
+                <span>{title}</span>
+                <div className={styles['count-group']}>
+                    <span className={styles['count-pill']}>{count}</span>
+                    <span className={`${styles.chevron} ${isOpen ? styles.open : ''}`} aria-hidden>
+                        ▾
+                    </span>
+                </div>
+            </button>
+            <button
+                className={`${styles['highlight-group-btn']} ${isGroupHighlighted ? styles.active : ''}`}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onHighlightGroup(); }}
+                aria-pressed={isGroupHighlighted}
+                title={isGroupHighlighted ? 'Remove group highlight' : 'Highlight all in this group'}
+            >
+                {isGroupHighlighted ? 'Remove' : 'Highlight Group'}
+            </button>
+        </div>
         {isOpen && (
             <div className={styles['category-body']}>
                 {items.length ? (

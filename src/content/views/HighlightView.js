@@ -8,6 +8,15 @@ import { OverlayView } from './OverlayView.js';
 
 const HIGHLIGHT_CLASS = '__axe_extension_highlight';
 const HIGHLIGHT_STYLE_ID = '__axe_extension_highlight_style';
+const TEAL_HIGHLIGHT_CLASS = '__axe_teal_highlight';
+const TEAL_TOOLTIP_CLASS = '__axe_teal_tooltip';
+
+const IMPACT_COLORS = {
+    critical: { bg: '#fee2e2', text: '#b91c1c' },
+    serious:  { bg: '#ffe4c7', text: '#c2410c' },
+    moderate: { bg: '#fef3c7', text: '#92400e' },
+    minor:    { bg: '#dcfce7', text: '#166534' }
+};
 
 export class HighlightView {
     static currentHighlightedElement = null;
@@ -215,8 +224,160 @@ export class HighlightView {
         document.documentElement.appendChild(style);
     }
 
+    // --- Teal Multi-Highlight (Highlight All / Highlight Group) ---
+
+    static applyHighlightTeal(node) {
+        if (!node) return;
+        if (!node.__axePrevStylesTeal) {
+            node.__axePrevStylesTeal = {
+                outline: node.style.outline,
+                outlineOffset: node.style.outlineOffset,
+                boxShadow: node.style.boxShadow,
+                position: node.style.position,
+                zIndex: node.style.zIndex
+            };
+        }
+        node.classList.add(TEAL_HIGHLIGHT_CLASS);
+        node.style.outline = '3px solid #0d9488';
+        node.style.outlineOffset = '3px';
+        node.style.boxShadow = '0 0 0 3px rgba(13, 148, 136, 0.3), 0 0 16px rgba(13, 148, 136, 0.55)';
+        node.style.position = 'relative';
+        node.style.zIndex = '999999';
+    }
+
+    static createHoverTooltip(element, data) {
+        const impact = (data?.impact || 'moderate').toLowerCase();
+        const colors = IMPACT_COLORS[impact] || IMPACT_COLORS.moderate;
+        const tags = (data?.wcag_tags || [])
+            .filter(t => !t.includes('best-practice'))
+            .slice(0, 4);
+        const description = data?.description || 'Accessibility violation';
+
+        const tagsHtml = tags.map(t =>
+            `<span style="display:inline-block;font-size:10px;background:#f1f5f9;color:#64748b;border-radius:4px;padding:1px 6px;font-weight:500;font-family:inherit;">${t}</span>`
+        ).join('');
+
+        const tooltip = document.createElement('div');
+        tooltip.className = TEAL_TOOLTIP_CLASS;
+        tooltip.innerHTML = `
+            <p style="margin:0 0 5px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;">Accessibility Issue</p>
+            <p style="margin:0 0 9px;font-size:12px;font-weight:600;color:#0f172a;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${description}</p>
+            <div style="display:flex;align-items:center;gap:6px;${tags.length ? 'margin-bottom:8px;' : ''}">
+                <span style="font-size:10px;font-weight:700;background:${colors.bg};color:${colors.text};padding:2px 8px;border-radius:5px;text-transform:capitalize;">${impact}</span>
+            </div>
+            ${tags.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${tagsHtml}</div>` : ''}
+            <div class="${TEAL_TOOLTIP_CLASS}__arrow" style="position:absolute;bottom:-6px;left:18px;width:10px;height:10px;background:#fff;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;transform:rotate(45deg);"></div>
+        `;
+
+        Object.assign(tooltip.style, {
+            position: 'fixed',
+            zIndex: '2147483647',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '12px 14px 14px',
+            boxShadow: '0 10px 28px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07)',
+            maxWidth: '260px',
+            minWidth: '160px',
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            lineHeight: '1.5',
+            pointerEvents: 'none',
+            display: 'none',
+            boxSizing: 'border-box'
+        });
+
+        document.body.appendChild(tooltip);
+
+        const showTooltip = () => {
+            const rect = element.getBoundingClientRect();
+            const TW = 260;
+            let left = rect.left;
+            if (left + TW > window.innerWidth - 8) left = window.innerWidth - TW - 8;
+            if (left < 8) left = 8;
+
+            // Place above the element; fall back to below if not enough space
+            const approxH = 110;
+            const top = rect.top > approxH + 14
+                ? rect.top - approxH - 10
+                : rect.bottom + 10;
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+            tooltip.style.display = 'block';
+        };
+
+        const hideTooltip = () => { tooltip.style.display = 'none'; };
+
+        element.__axeTealHandlers = { enter: showTooltip, leave: hideTooltip };
+        element.__axeTealTooltip = tooltip;
+        element.addEventListener('mouseenter', showTooltip);
+        element.addEventListener('mouseleave', hideTooltip);
+    }
+
+    static clearTealHighlights() {
+        document.querySelectorAll('.' + TEAL_HIGHLIGHT_CLASS).forEach(node => {
+            node.classList.remove(TEAL_HIGHLIGHT_CLASS);
+
+            // Remove hover tooltip and its event listeners
+            if (node.__axeTealTooltip) {
+                node.__axeTealTooltip.remove();
+                delete node.__axeTealTooltip;
+            }
+            if (node.__axeTealHandlers) {
+                node.removeEventListener('mouseenter', node.__axeTealHandlers.enter);
+                node.removeEventListener('mouseleave', node.__axeTealHandlers.leave);
+                delete node.__axeTealHandlers;
+            }
+
+            if (node.__axePrevStylesTeal) {
+                node.style.outline = node.__axePrevStylesTeal.outline || '';
+                node.style.outlineOffset = node.__axePrevStylesTeal.outlineOffset || '';
+                node.style.boxShadow = node.__axePrevStylesTeal.boxShadow || '';
+                node.style.position = node.__axePrevStylesTeal.position || '';
+                node.style.zIndex = node.__axePrevStylesTeal.zIndex || '';
+                delete node.__axePrevStylesTeal;
+            } else {
+                node.style.outline = '';
+                node.style.outlineOffset = '';
+                node.style.boxShadow = '';
+                node.style.position = '';
+                node.style.zIndex = '';
+            }
+        });
+
+        // Safety: remove any orphaned tooltips
+        document.querySelectorAll('.' + TEAL_TOOLTIP_CLASS).forEach(t => t.remove());
+    }
+
+    static highlightAll(selectorDataArray) {
+        this.clearMainHighlight();
+        this.clearTealHighlights();
+        if (!Array.isArray(selectorDataArray) || selectorDataArray.length === 0) {
+            return { found: false, count: 0 };
+        }
+
+        let count = 0;
+        let firstElement = null;
+        selectorDataArray.forEach(selectorData => {
+            const { element } = DomModel.findElement(selectorData);
+            if (element) {
+                this.applyHighlightTeal(element);
+                this.createHoverTooltip(element, selectorData);
+                if (!firstElement) firstElement = element;
+                count++;
+            }
+        });
+
+        if (firstElement) {
+            this.scrollIntoView(firstElement);
+        }
+
+        return { found: count > 0, count };
+    }
+
     static clearAll() {
         this.clearMainHighlight();
         this.clearContrastHighlights();
+        this.clearTealHighlights();
     }
 }

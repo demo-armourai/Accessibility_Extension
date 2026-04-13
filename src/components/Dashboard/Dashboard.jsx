@@ -70,13 +70,15 @@ const formatCategories = (entries, type) =>
 
 const Dashboard = ({ onTabChange }) => {
     const { axe, history, tabOrder, structure } = useAccessibility();
-    const { results, isScanning, error, runScan, toggleHighlight, clearHighlights } = axe;
+    const { results, isScanning, error, runScan, toggleHighlight, clearHighlights, highlightAll, clearTealHighlights } = axe;
     const { loadScanData } = history;
     const { setOrderData } = tabOrder;
     const { setStructure } = structure;
     const hasResults = Boolean(results);
     const [toastMessage, setToastMessage] = useState(null);
     const [highlightedItemId, setHighlightedItemId] = useState(null);
+    const [highlightAllActive, setHighlightAllActive] = useState(false);
+    const [highlightedGroupId, setHighlightedGroupId] = useState(null);
     const [showBestPractices, setShowBestPractices] = useState(false);
     const [diffState, setDiffState] = useState(null);
 
@@ -90,9 +92,12 @@ const Dashboard = ({ onTabChange }) => {
     useEffect(() => {
         if (results) {
             clearHighlights();
+            clearTealHighlights();
             setHighlightedItemId(null);
+            setHighlightAllActive(false);
+            setHighlightedGroupId(null);
         }
-    }, [results, clearHighlights]);
+    }, [results, clearHighlights, clearTealHighlights]);
 
     const { strictViolations, bestPractices, impacts, bestPracticesNodeCount } = useMemo(() => {
         const allViolations = results?.violations || [];
@@ -127,16 +132,20 @@ const Dashboard = ({ onTabChange }) => {
     const handleHighlight = (item) => {
         if (!item) return;
 
-        // Create unique ID for this item
+        // Clear group/all highlights when switching to single item
+        if (highlightAllActive || highlightedGroupId) {
+            clearTealHighlights();
+            setHighlightAllActive(false);
+            setHighlightedGroupId(null);
+        }
+
         const itemId = `${item.element_location || ''}-${item.description || ''}`;
         const isCurrentlyHighlighted = highlightedItemId === itemId;
 
         if (isCurrentlyHighlighted) {
-            // Turn off highlight
             clearHighlights();
             setHighlightedItemId(null);
         } else {
-            // Turn on highlight
             const selectorData = {
                 selectors: item.selectors || [],
                 element_location: item.element_location
@@ -152,6 +161,58 @@ const Dashboard = ({ onTabChange }) => {
                 } else {
                     setToastMessage(response && response.error ? response.error : 'Component not found on this page.');
                     setHighlightedItemId(null);
+                }
+            });
+        }
+    };
+
+    const handleHighlightAll = () => {
+        if (highlightAllActive) {
+            clearTealHighlights();
+            setHighlightAllActive(false);
+        } else {
+            const allSelectorData = violationCategories.flatMap(cat =>
+                cat.items.map(item => ({
+                    selectors: item.selectors || [],
+                    element_location: item.element_location,
+                    description: item.description,
+                    impact: item.impact,
+                    wcag_tags: item.wcag_tags
+                }))
+            );
+            clearHighlights();
+            setHighlightedItemId(null);
+            setHighlightedGroupId(null);
+            highlightAll(allSelectorData, (response) => {
+                if (response && response.ok) {
+                    setHighlightAllActive(true);
+                } else {
+                    setToastMessage('No violation elements found on this page.');
+                }
+            });
+        }
+    };
+
+    const handleHighlightGroup = (groupId, items) => {
+        if (highlightedGroupId === groupId) {
+            clearTealHighlights();
+            setHighlightedGroupId(null);
+        } else {
+            const selectorDataArray = items.map(item => ({
+                selectors: item.selectors || [],
+                element_location: item.element_location,
+                description: item.description,
+                impact: item.impact,
+                wcag_tags: item.wcag_tags
+            }));
+            clearHighlights();
+            setHighlightedItemId(null);
+            setHighlightAllActive(false);
+            highlightAll(selectorDataArray, (response) => {
+                if (response && response.ok) {
+                    setHighlightedGroupId(groupId);
+                } else {
+                    setToastMessage('No elements found for this group on this page.');
                 }
             });
         }
@@ -283,6 +344,10 @@ const Dashboard = ({ onTabChange }) => {
                     bestPractices={bestPracticeCategories}
                     passed={successCategories}
                     onHighlight={handleHighlight}
+                    onHighlightAll={handleHighlightAll}
+                    onHighlightGroup={handleHighlightGroup}
+                    highlightAllActive={highlightAllActive}
+                    highlightedGroupId={highlightedGroupId}
                     onReRun={runScan}
                     onSave={handleSaveScan}
                     onDownloadReport={handleDownloadReport}

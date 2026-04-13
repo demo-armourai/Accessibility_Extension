@@ -27,6 +27,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'toggle-highlight':
             HighlightController.handleToggleHighlight(message, sendResponse);
             break;
+        case 'highlight-all':
+            HighlightController.handleHighlightAll(message, sendResponse);
+            break;
+        case 'clear-teal-highlights':
+            HighlightController.handleClearTealHighlights(message, sendResponse);
+            break;
         case 'clear-highlights':
         case 'clear-highlights-contrast':
             HighlightController.handleClearHighlights(message, sendResponse);

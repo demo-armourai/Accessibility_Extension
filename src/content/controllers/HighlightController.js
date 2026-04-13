@@ -22,10 +22,20 @@ export class HighlightController {
         });
     }
 
+    static handleHighlightAll(message, sendResponse) {
+        const result = HighlightView.highlightAll(message.selectorDataArray || []);
+        sendResponse({ ok: result.found, count: result.count });
+    }
+
+    static handleClearTealHighlights(message, sendResponse) {
+        HighlightView.clearTealHighlights();
+        sendResponse({ ok: true });
+    }
+
     static handleClearHighlights(message, sendResponse) {
         HighlightView.clearMainHighlight();
-        // Also clear contrast? Runner.js cleared both in clearHighlights()
         HighlightView.clearContrastHighlights();
+        HighlightView.clearTealHighlights();
         sendResponse({ ok: true });
     }
 

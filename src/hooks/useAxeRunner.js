@@ -51,6 +51,19 @@ export const useAxeRunner = () => {
         );
     }, []);
 
+    const highlightAll = useCallback((selectorDataArray, callback) => {
+        sendMessageToInspectedTab(
+            { type: 'highlight-all', selectorDataArray: selectorDataArray || [] },
+            (response) => {
+                if (callback) callback(response);
+            }
+        );
+    }, []);
+
+    const clearTealHighlights = useCallback(() => {
+        sendMessageToInspectedTab({ type: 'clear-teal-highlights' }, () => { });
+    }, []);
+
     return {
         results,
         isScanning,
@@ -60,6 +73,8 @@ export const useAxeRunner = () => {
         clearHighlightsContrast,
         highlightNode,
         clearHighlights,
-        toggleHighlight
+        toggleHighlight,
+        highlightAll,
+        clearTealHighlights
     };
 };

@@ -3,7 +3,7 @@ import styles from './Dashboard.module.css';
 import SummaryCard from './SummaryCard';
 import CategoryPanel from './CategoryPanel';
 
-const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHighlight, onReRun, onSave, onDownloadReport, onDownloadExcel, highlightedItemId, showBestPractices, setShowBestPractices }) => {
+const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHighlight, onHighlightAll, onHighlightGroup, highlightAllActive, highlightedGroupId, onReRun, onSave, onDownloadReport, onDownloadExcel, highlightedItemId, showBestPractices, setShowBestPractices }) => {
     const ITEMS_PER_PAGE = 5;
 
     const [openViolationIndex, setOpenViolationIndex] = useState(violations.length ? 0 : -1);
@@ -58,6 +58,8 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
                 onDownloadExcel={onDownloadExcel}
                 showBestPractices={showBestPractices}
                 toggleBestPractices={() => setShowBestPractices(prev => !prev)}
+                onHighlightAll={onHighlightAll}
+                highlightAllActive={highlightAllActive}
             />
 
             {/* Best Practices Section - Controlled by Toggle */}
@@ -71,6 +73,7 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
                                 .slice(bestPracticesPage * ITEMS_PER_PAGE, (bestPracticesPage + 1) * ITEMS_PER_PAGE)
                                 .map((item, index) => {
                                     const actualIndex = bestPracticesPage * ITEMS_PER_PAGE + index;
+                                    const groupId = `bp-${actualIndex}`;
                                     return (
                                         <CategoryPanel
                                             key={item.category}
@@ -84,6 +87,8 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
                                             onNext={() => updateIndex(setBestPracticeItemIndexes, actualIndex, 1, bestPractices)}
                                             onHighlight={(entry) => onHighlight(entry)}
                                             highlightedItemId={highlightedItemId}
+                                            onHighlightGroup={() => onHighlightGroup(groupId, item.items)}
+                                            isGroupHighlighted={highlightedGroupId === groupId}
                                         />
                                     );
                                 })}
@@ -123,6 +128,7 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
                             .slice(violationsPage * ITEMS_PER_PAGE, (violationsPage + 1) * ITEMS_PER_PAGE)
                             .map((violation, index) => {
                                 const actualIndex = violationsPage * ITEMS_PER_PAGE + index;
+                                const groupId = `violation-${actualIndex}`;
                                 return (
                                     <CategoryPanel
                                         key={violation.category}
@@ -136,6 +142,8 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
                                         onNext={() => updateIndex(setViolationItemIndexes, actualIndex, 1, violations)}
                                         onHighlight={(item) => onHighlight(item)}
                                         highlightedItemId={highlightedItemId}
+                                        onHighlightGroup={() => onHighlightGroup(groupId, violation.items)}
+                                        isGroupHighlighted={highlightedGroupId === groupId}
                                     />
                                 );
                             })}
@@ -174,6 +182,7 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
                             .slice(successPage * ITEMS_PER_PAGE, (successPage + 1) * ITEMS_PER_PAGE)
                             .map((item, index) => {
                                 const actualIndex = successPage * ITEMS_PER_PAGE + index;
+                                const groupId = `passed-${actualIndex}`;
                                 return (
                                     <CategoryPanel
                                         key={item.category}
@@ -187,6 +196,8 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
                                         onNext={() => updateIndex(setPassedItemIndexes, actualIndex, 1, passed)}
                                         onHighlight={(entry) => onHighlight(entry)}
                                         highlightedItemId={highlightedItemId}
+                                        onHighlightGroup={() => onHighlightGroup(groupId, item.items)}
+                                        isGroupHighlighted={highlightedGroupId === groupId}
                                     />
                                 );
                             })}

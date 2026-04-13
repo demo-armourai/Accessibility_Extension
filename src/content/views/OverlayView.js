@@ -554,16 +554,17 @@ export class OverlayView {
         overlay.style.left = (rect.left + scrollLeft) + 'px';
         overlay.style.width = rect.width + 'px';
         overlay.style.height = rect.height + 'px';
-        overlay.style.border = '2px dashed #005a9c';
+        overlay.style.border = '3px solid #0d9488';
         overlay.style.boxSizing = 'border-box';
         overlay.style.pointerEvents = 'none';
+        overlay.style.boxShadow = '0 0 0 3px rgba(13, 148, 136, 0.2), 0 0 12px rgba(13, 148, 136, 0.4)';
 
         if (badgeContent) {
             const badge = document.createElement('div');
             badge.style.position = 'absolute';
             badge.style.top = '-22px';
             badge.style.left = '-2px';
-            badge.style.backgroundColor = '#005a9c';
+            badge.style.backgroundColor = '#0d9488';
             badge.style.color = 'white';
             badge.style.fontSize = '11px';
             badge.style.fontWeight = 'bold';

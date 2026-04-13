@@ -6,7 +6,7 @@ const percentage = (value, total) => (total === 0 ? 0 : Math.round((value / tota
 
 
 
-const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, onDownloadExcel, showBestPractices, toggleBestPractices }) => {
+const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, onDownloadExcel, showBestPractices, toggleBestPractices, onHighlightAll, highlightAllActive }) => {
     const { history } = useAccessibility();
     const { getRemainingCooldown } = history;
     const [cooldown, setCooldown] = useState(0);
@@ -48,6 +48,15 @@ const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, onDownloadExc
                 <div className={styles['summary-left-panel']}>
                     <div className={styles['chart-container-vertical']}>
                         <div className={styles['summary-chart']} role="img" aria-label={`${summary.passed} passed, ${summary.violations} violations`} style={chartStyle} />
+                        <button
+                            className={`${styles['highlight-all-btn']} ${highlightAllActive ? styles.active : ''}`}
+                            type="button"
+                            onClick={onHighlightAll}
+                            aria-pressed={highlightAllActive}
+                            title={highlightAllActive ? 'Remove all highlights' : 'Highlight all violations on the page'}
+                        >
+                            {highlightAllActive ? 'Remove All' : 'Highlight All'}
+                        </button>
                     </div>
 
                     <div className={styles['left-content-stack']}>
