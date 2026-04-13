@@ -6,7 +6,7 @@ const percentage = (value, total) => (total === 0 ? 0 : Math.round((value / tota
 
 
 
-const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, onDownloadExcel, showBestPractices, toggleBestPractices, onHighlightAll, highlightAllActive }) => {
+const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, onDownloadExcel, onDownloadPageHtml, showBestPractices, toggleBestPractices, onHighlightAll, highlightAllActive }) => {
     const { history } = useAccessibility();
     const { getRemainingCooldown } = history;
     const [cooldown, setCooldown] = useState(0);
@@ -178,6 +178,15 @@ const SummaryCard = ({ summary, onReRun, onSave, onDownloadReport, onDownloadExc
                     >
                         <span className={styles['download-icon']} aria-hidden="true">⬇</span>
                         <span>Download Excel</span>
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.btn} ${styles['icon-btn']}`}
+                        onClick={onDownloadPageHtml}
+                        aria-label="Download inspected page as HTML including highlights on the page"
+                    >
+                        <span className={styles['download-icon']} aria-hidden="true">⬇</span>
+                        <span>Download page HTML</span>
                     </button>
                 </div>
             </div>

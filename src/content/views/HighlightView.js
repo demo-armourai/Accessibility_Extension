@@ -10,6 +10,110 @@ const HIGHLIGHT_CLASS = '__axe_extension_highlight';
 const HIGHLIGHT_STYLE_ID = '__axe_extension_highlight_style';
 const TEAL_HIGHLIGHT_CLASS = '__axe_teal_highlight';
 const TEAL_TOOLTIP_CLASS = '__axe_teal_tooltip';
+const HMENU_STYLE_ID = '__axe_hmenu_tooltip_styles';
+
+/** Mirrors Dashboard.module.css (.hmenu-*) for parity with DevTools hover cards on the live page and in HTML export. */
+const HMENU_TOOLTIP_CSS = `
+.axe-hmenu-popup.${TEAL_TOOLTIP_CLASS} {
+    position: fixed;
+    transform: translateX(-50%) translateY(-100%);
+    width: 224px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px 16px 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.11), 0 2px 8px rgba(0, 0, 0, 0.07);
+    z-index: 2147483647;
+    pointer-events: none;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.5;
+}
+.axe-hmenu-popup .axe-hmenu-arrow {
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    width: 11px;
+    height: 11px;
+    background: #ffffff;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    transform: translateX(-50%) rotate(45deg);
+}
+.axe-hmenu-popup.${TEAL_TOOLTIP_CLASS}.axe-hmenu-popup--below {
+    transform: translateX(-50%) translateY(0);
+}
+.axe-hmenu-popup.${TEAL_TOOLTIP_CLASS}.axe-hmenu-popup--below .axe-hmenu-arrow {
+    bottom: auto;
+    top: -6px;
+    border-right: none;
+    border-bottom: none;
+    border-top: 1px solid #e2e8f0;
+    border-left: 1px solid #e2e8f0;
+    transform: translateX(-50%) rotate(45deg);
+}
+.axe-hmenu-popup .axe-hmenu-label {
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #94a3b8;
+    margin: 0 0 8px 0;
+}
+.axe-hmenu-popup .axe-hmenu-title {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0 0 2px 0;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.axe-hmenu-popup .axe-hmenu-divider {
+    height: 1px;
+    background: #f1f5f9;
+    margin: 10px 0;
+}
+.axe-hmenu-popup .axe-hmenu-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+}
+.axe-hmenu-popup .axe-hmenu-key {
+    font-size: 0.77rem;
+    color: #64748b;
+    font-weight: 500;
+}
+.axe-hmenu-popup .axe-hmenu-value {
+    font-size: 0.77rem;
+    color: #1e293b;
+    font-weight: 600;
+}
+.axe-hmenu-popup .axe-hmenu-impact {
+    font-size: 0.71rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 6px;
+    text-transform: capitalize;
+}
+.axe-hmenu-popup .axe-hmenu-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 10px;
+}
+.axe-hmenu-popup .axe-hmenu-tag {
+    font-size: 0.66rem;
+    background: #f1f5f9;
+    color: #64748b;
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-weight: 500;
+}
+`;
 
 const IMPACT_COLORS = {
     critical: { bg: '#fee2e2', text: '#b91c1c' },
@@ -20,6 +124,26 @@ const IMPACT_COLORS = {
 
 export class HighlightView {
     static currentHighlightedElement = null;
+
+    static escapeHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    static escapeHtmlAttr(str) {
+        return HighlightView.escapeHtml(str).replace(/'/g, '&#39;');
+    }
+
+    static ensureHmenuStyles() {
+        if (document.getElementById(HMENU_STYLE_ID)) return;
+        const style = document.createElement('style');
+        style.id = HMENU_STYLE_ID;
+        style.textContent = HMENU_TOOLTIP_CSS;
+        (document.head || document.documentElement).appendChild(style);
+    }
 
     static highlightElement(selectorData) {
         this.clearMainHighlight();
@@ -245,68 +369,119 @@ export class HighlightView {
         node.style.zIndex = '999999';
     }
 
+    /**
+     * Places the violation hover card above or beside the element using viewport space,
+     * horizontal centering with clamping, and flip-to-below when the card would clip the top
+     * (e.g. nav under a fixed header).
+     */
+    static positionHmenuTooltipNear(element, tooltip) {
+        const GAP = 10;
+        const MARGIN = 8;
+        const TIP_W = 224;
+
+        const rect = element.getBoundingClientRect();
+        const vw = window.innerWidth || document.documentElement.clientWidth;
+        const vh = window.innerHeight || document.documentElement.clientHeight;
+
+        tooltip.style.display = 'block';
+        tooltip.style.visibility = 'hidden';
+        tooltip.style.left = '-9999px';
+        tooltip.style.top = '0';
+        const tipH = Math.max(tooltip.offsetHeight || 0, 72);
+        tooltip.style.visibility = '';
+
+        let left = rect.left + rect.width / 2;
+        left = Math.max(MARGIN + TIP_W / 2, Math.min(left, vw - MARGIN - TIP_W / 2));
+
+        const spaceAbove = rect.top - MARGIN;
+        const spaceBelow = vh - rect.bottom - MARGIN;
+        const need = tipH + GAP;
+
+        let placementBelow = false;
+
+        if (spaceAbove < need && spaceBelow >= need) {
+            placementBelow = true;
+        } else if (spaceAbove >= need && spaceBelow < need) {
+            placementBelow = false;
+        } else if (spaceAbove >= need && spaceBelow >= need) {
+            const wouldClipViewportTop = rect.top - GAP < tipH + MARGIN;
+            placementBelow = wouldClipViewportTop;
+        } else {
+            placementBelow = spaceBelow >= spaceAbove;
+        }
+
+        if (!placementBelow) {
+            const visualTop = rect.top - GAP - tipH;
+            if (visualTop < MARGIN && spaceBelow >= Math.min(need, Math.round(tipH * 0.65))) {
+                placementBelow = true;
+            }
+        }
+
+        tooltip.style.left = `${left}px`;
+
+        if (placementBelow) {
+            tooltip.classList.add('axe-hmenu-popup--below');
+            let top = rect.bottom + GAP;
+            if (top + tipH > vh - MARGIN) {
+                top = Math.max(MARGIN, vh - MARGIN - tipH);
+            }
+            tooltip.style.top = `${top}px`;
+        } else {
+            tooltip.classList.remove('axe-hmenu-popup--below');
+            tooltip.style.top = `${rect.top - GAP}px`;
+            const visualTop = rect.top - GAP - tipH;
+            if (visualTop < MARGIN) {
+                tooltip.style.top = `${MARGIN + tipH + GAP}px`;
+            }
+        }
+    }
+
     static createHoverTooltip(element, data) {
+        this.ensureHmenuStyles();
+
         const impact = (data?.impact || 'moderate').toLowerCase();
         const colors = IMPACT_COLORS[impact] || IMPACT_COLORS.moderate;
         const tags = (data?.wcag_tags || [])
             .filter(t => !t.includes('best-practice'))
             .slice(0, 4);
-        const description = data?.description || 'Accessibility violation';
+        const ruleTitle = data?.rule_title || data?.description || 'Accessibility violation';
+        const affected = Number.isFinite(data?.affected_count) && data.affected_count > 0
+            ? data.affected_count
+            : 1;
 
-        const tagsHtml = tags.map(t =>
-            `<span style="display:inline-block;font-size:10px;background:#f1f5f9;color:#64748b;border-radius:4px;padding:1px 6px;font-weight:500;font-family:inherit;">${t}</span>`
-        ).join('');
+        const tagsHtml = tags
+            .map(t => `<span class="axe-hmenu-tag">${this.escapeHtml(t)}</span>`)
+            .join('');
 
         const tooltip = document.createElement('div');
-        tooltip.className = TEAL_TOOLTIP_CLASS;
+        tooltip.className = `${TEAL_TOOLTIP_CLASS} axe-hmenu-popup`;
+        tooltip.style.display = 'none';
         tooltip.innerHTML = `
-            <p style="margin:0 0 5px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;">Accessibility Issue</p>
-            <p style="margin:0 0 9px;font-size:12px;font-weight:600;color:#0f172a;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${description}</p>
-            <div style="display:flex;align-items:center;gap:6px;${tags.length ? 'margin-bottom:8px;' : ''}">
-                <span style="font-size:10px;font-weight:700;background:${colors.bg};color:${colors.text};padding:2px 8px;border-radius:5px;text-transform:capitalize;">${impact}</span>
+            <p class="axe-hmenu-label">Violation Rule</p>
+            <p class="axe-hmenu-title">${this.escapeHtml(ruleTitle)}</p>
+            <div class="axe-hmenu-divider"></div>
+            <div class="axe-hmenu-row">
+                <span class="axe-hmenu-key">Impact</span>
+                <span class="axe-hmenu-impact" style="background:${colors.bg};color:${colors.text}">${this.escapeHtml(impact)}</span>
             </div>
-            ${tags.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${tagsHtml}</div>` : ''}
-            <div class="${TEAL_TOOLTIP_CLASS}__arrow" style="position:absolute;bottom:-6px;left:18px;width:10px;height:10px;background:#fff;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;transform:rotate(45deg);"></div>
+            <div class="axe-hmenu-row">
+                <span class="axe-hmenu-key">Affected</span>
+                <span class="axe-hmenu-value">${affected} element${affected !== 1 ? 's' : ''}</span>
+            </div>
+            ${tags.length ? `<div class="axe-hmenu-tags">${tagsHtml}</div>` : ''}
+            <div class="axe-hmenu-arrow" aria-hidden="true"></div>
         `;
-
-        Object.assign(tooltip.style, {
-            position: 'fixed',
-            zIndex: '2147483647',
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '12px 14px 14px',
-            boxShadow: '0 10px 28px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07)',
-            maxWidth: '260px',
-            minWidth: '160px',
-            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-            lineHeight: '1.5',
-            pointerEvents: 'none',
-            display: 'none',
-            boxSizing: 'border-box'
-        });
 
         document.body.appendChild(tooltip);
 
         const showTooltip = () => {
-            const rect = element.getBoundingClientRect();
-            const TW = 260;
-            let left = rect.left;
-            if (left + TW > window.innerWidth - 8) left = window.innerWidth - TW - 8;
-            if (left < 8) left = 8;
-
-            // Place above the element; fall back to below if not enough space
-            const approxH = 110;
-            const top = rect.top > approxH + 14
-                ? rect.top - approxH - 10
-                : rect.bottom + 10;
-
-            tooltip.style.left = left + 'px';
-            tooltip.style.top = top + 'px';
-            tooltip.style.display = 'block';
+            this.positionHmenuTooltipNear(element, tooltip);
         };
 
-        const hideTooltip = () => { tooltip.style.display = 'none'; };
+        const hideTooltip = () => {
+            tooltip.style.display = 'none';
+            tooltip.style.visibility = '';
+        };
 
         element.__axeTealHandlers = { enter: showTooltip, leave: hideTooltip };
         element.__axeTealTooltip = tooltip;
@@ -347,6 +522,9 @@ export class HighlightView {
 
         // Safety: remove any orphaned tooltips
         document.querySelectorAll('.' + TEAL_TOOLTIP_CLASS).forEach(t => t.remove());
+
+        const hmenuStyle = document.getElementById(HMENU_STYLE_ID);
+        if (hmenuStyle) hmenuStyle.remove();
     }
 
     static highlightAll(selectorDataArray) {
@@ -379,5 +557,118 @@ export class HighlightView {
         this.clearMainHighlight();
         this.clearContrastHighlights();
         this.clearTealHighlights();
+    }
+
+    /**
+     * Serializes the current document to a standalone HTML file, including extension
+     * overlays and teal violation highlights. Tooltips use data-axe-export-tip + a
+     * small injected script so hover works in the saved file (listeners are not kept by outerHTML).
+     */
+    static exportPageSnapshotHtml() {
+        try {
+            let tipIndex = 0;
+            document.querySelectorAll('.' + TEAL_HIGHLIGHT_CLASS).forEach((node) => {
+                if (!node.__axeTealTooltip) return;
+                const id = 'axe-export-tip-' + tipIndex++;
+                node.setAttribute('data-axe-export-tip', id);
+                node.__axeTealTooltip.setAttribute('id', id);
+            });
+
+            const doctype = document.doctype
+                ? new XMLSerializer().serializeToString(document.doctype) + '\n'
+                : '<!DOCTYPE html>\n';
+
+            let html = doctype + document.documentElement.outerHTML;
+
+            document.querySelectorAll('[data-axe-export-tip]').forEach((el) => {
+                el.removeAttribute('data-axe-export-tip');
+            });
+            document.querySelectorAll('[id^="axe-export-tip-"]').forEach((el) => {
+                el.removeAttribute('id');
+            });
+
+            const baseUrl = (typeof location !== 'undefined' && location.href
+                ? location.href.split('#')[0]
+                : '');
+            if (baseUrl && !/<base\s/i.test(html) && /<head[^>]*>/i.test(html)) {
+                const safeBase = this.escapeHtmlAttr(baseUrl);
+                html = html.replace(/<head[^>]*>/i, (open) => `${open}<base href="${safeBase}">`);
+            }
+
+            const exportHookScript = `
+<script>
+(function(){
+var GAP=10,MARGIN=8,TIP_W=224;
+function place(el,tip){
+var r=el.getBoundingClientRect();
+var vw=window.innerWidth||document.documentElement.clientWidth;
+var vh=window.innerHeight||document.documentElement.clientHeight;
+tip.style.display="block";
+tip.style.visibility="hidden";
+tip.style.left="-9999px";
+tip.style.top="0";
+var tipH=Math.max(tip.offsetHeight||0,72);
+tip.style.visibility="";
+var left=r.left+r.width/2;
+left=Math.max(MARGIN+TIP_W/2,Math.min(left,vw-MARGIN-TIP_W/2));
+var spaceAbove=r.top-MARGIN;
+var spaceBelow=vh-r.bottom-MARGIN;
+var need=tipH+GAP;
+var below=false;
+if(spaceAbove<need&&spaceBelow>=need){below=true;}
+else if(spaceAbove>=need&&spaceBelow<need){below=false;}
+else if(spaceAbove>=need&&spaceBelow>=need){below=(r.top-GAP<tipH+MARGIN);}
+else{below=spaceBelow>=spaceAbove;}
+if(!below){
+var vTop=r.top-GAP-tipH;
+if(vTop<MARGIN&&spaceBelow>=Math.min(need,Math.round(tipH*0.65))){below=true;}
+}
+tip.style.left=left+"px";
+if(below){
+tip.classList.add("axe-hmenu-popup--below");
+var top=r.bottom+GAP;
+if(top+tipH>vh-MARGIN){top=Math.max(MARGIN,vh-MARGIN-tipH);}
+tip.style.top=top+"px";
+}else{
+tip.classList.remove("axe-hmenu-popup--below");
+tip.style.top=(r.top-GAP)+"px";
+var vt=r.top-GAP-tipH;
+if(vt<MARGIN){tip.style.top=(MARGIN+tipH+GAP)+"px";}
+}
+}
+function bind(){
+document.querySelectorAll("[data-axe-export-tip]").forEach(function(el){
+var id=el.getAttribute("data-axe-export-tip");
+var tip=document.getElementById(id);
+if(!tip)return;
+el.addEventListener("mouseenter",function(){place(el,tip);});
+el.addEventListener("mouseleave",function(){tip.style.display="none";tip.style.visibility="";});
+});
+}
+bind();
+function repositionOpenTips(){
+document.querySelectorAll("[data-axe-export-tip]").forEach(function(el){
+var tip=document.getElementById(el.getAttribute("data-axe-export-tip"));
+if(tip&&tip.style.display==="block")place(el,tip);
+});
+}
+window.addEventListener("scroll",repositionOpenTips,true);
+window.addEventListener("resize",repositionOpenTips,true);
+})();
+</script>
+`;
+
+            if (/<\/body>/i.test(html)) {
+                html = html.replace(/<\/body>/i, exportHookScript + '</body>');
+            } else if (/<\/html>/i.test(html)) {
+                html = html.replace(/<\/html>/i, exportHookScript + '</html>');
+            } else {
+                html += exportHookScript;
+            }
+
+            return { ok: true, html };
+        } catch (e) {
+            return { ok: false, error: e && e.message ? e.message : String(e) };
+        }
     }
 }

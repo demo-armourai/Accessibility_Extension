@@ -128,4 +128,9 @@ export class HighlightController {
             sendResponse({ ok: false, error: error.message });
         }
     }
+
+    static handleExportPageHtml(message, sendResponse) {
+        const result = HighlightView.exportPageSnapshotHtml();
+        sendResponse(result);
+    }
 }

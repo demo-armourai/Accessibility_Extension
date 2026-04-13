@@ -62,5 +62,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'show-structure-diff-overlay':
             HighlightController.handleShowStructureDiffOverlay(message, sendResponse);
             break;
+        case 'export-page-html':
+            HighlightController.handleExportPageHtml(message, sendResponse);
+            break;
     }
 });

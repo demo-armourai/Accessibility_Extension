@@ -6,6 +6,7 @@ import DiffView from './DiffView';
 import Toast from './Toast';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import { downloadAxeReportExcel } from '../../utils/axeReportExcel';
+import { sendMessageToInspectedTab } from '../../utils/messageHelpers';
 
 const getWCAGLevel = (results) => {
     const allItems = [...(results?.violations || []), ...(results?.passes || []), ...(results?.incomplete || [])];
@@ -176,6 +177,8 @@ const Dashboard = ({ onTabChange }) => {
                     selectors: item.selectors || [],
                     element_location: item.element_location,
                     description: item.description,
+                    rule_title: cat.category,
+                    affected_count: cat.count,
                     impact: item.impact,
                     wcag_tags: item.wcag_tags
                 }))
@@ -193,15 +196,18 @@ const Dashboard = ({ onTabChange }) => {
         }
     };
 
-    const handleHighlightGroup = (groupId, items) => {
+    const handleHighlightGroup = (groupId, items, ruleTitle) => {
         if (highlightedGroupId === groupId) {
             clearTealHighlights();
             setHighlightedGroupId(null);
         } else {
+            const title = ruleTitle || items[0]?.description || '';
             const selectorDataArray = items.map(item => ({
                 selectors: item.selectors || [],
                 element_location: item.element_location,
                 description: item.description,
+                rule_title: title,
+                affected_count: items.length,
                 impact: item.impact,
                 wcag_tags: item.wcag_tags
             }));
@@ -245,6 +251,37 @@ const Dashboard = ({ onTabChange }) => {
     const handleDownloadExcel = () => {
         if (!results) return;
         downloadAxeReportExcel(results);
+    };
+
+    const handleDownloadPageHtml = () => {
+        if (typeof window === 'undefined' || typeof document === 'undefined') {
+            console.warn('Download not supported in this environment.');
+            return;
+        }
+
+        sendMessageToInspectedTab({ type: 'export-page-html' }, (response) => {
+            if (!response || !response.ok || typeof response.html !== 'string') {
+                setToastMessage(response?.error || 'Could not export the page as HTML. Try reloading the tab.');
+                return;
+            }
+            const blob = new Blob([response.html], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            let host = 'page';
+            try {
+                host = new URL(results?.url || summary.url || '').hostname || 'page';
+            } catch {
+                /* keep default */
+            }
+            const safeHost = host.replace(/[^a-z0-9.-]/gi, '_').slice(0, 80) || 'page';
+            link.download = `page-snapshot-${safeHost}-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.html`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            setToastMessage('Saved HTML snapshot of the inspected page.');
+        });
     };
 
     const handleSaveScan = async () => {
@@ -352,6 +389,7 @@ const Dashboard = ({ onTabChange }) => {
                     onSave={handleSaveScan}
                     onDownloadReport={handleDownloadReport}
                     onDownloadExcel={handleDownloadExcel}
+                    onDownloadPageHtml={handleDownloadPageHtml}
                     highlightedItemId={highlightedItemId}
                     showBestPractices={showBestPractices}
                     setShowBestPractices={setShowBestPractices}

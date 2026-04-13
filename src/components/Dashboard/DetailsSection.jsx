@@ -3,7 +3,7 @@ import styles from './Dashboard.module.css';
 import SummaryCard from './SummaryCard';
 import CategoryPanel from './CategoryPanel';
 
-const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHighlight, onHighlightAll, onHighlightGroup, highlightAllActive, highlightedGroupId, onReRun, onSave, onDownloadReport, onDownloadExcel, highlightedItemId, showBestPractices, setShowBestPractices }) => {
+const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHighlight, onHighlightAll, onHighlightGroup, highlightAllActive, highlightedGroupId, onReRun, onSave, onDownloadReport, onDownloadExcel, onDownloadPageHtml, highlightedItemId, showBestPractices, setShowBestPractices }) => {
     const ITEMS_PER_PAGE = 5;
 
     const [openViolationIndex, setOpenViolationIndex] = useState(violations.length ? 0 : -1);
@@ -56,6 +56,7 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
                 onSave={onSave}
                 onDownloadReport={onDownloadReport}
                 onDownloadExcel={onDownloadExcel}
+                onDownloadPageHtml={onDownloadPageHtml}
                 showBestPractices={showBestPractices}
                 toggleBestPractices={() => setShowBestPractices(prev => !prev)}
                 onHighlightAll={onHighlightAll}
@@ -87,7 +88,7 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
                                             onNext={() => updateIndex(setBestPracticeItemIndexes, actualIndex, 1, bestPractices)}
                                             onHighlight={(entry) => onHighlight(entry)}
                                             highlightedItemId={highlightedItemId}
-                                            onHighlightGroup={() => onHighlightGroup(groupId, item.items)}
+                                            onHighlightGroup={() => onHighlightGroup(groupId, item.items, item.category)}
                                             isGroupHighlighted={highlightedGroupId === groupId}
                                         />
                                     );
@@ -142,7 +143,7 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
                                         onNext={() => updateIndex(setViolationItemIndexes, actualIndex, 1, violations)}
                                         onHighlight={(item) => onHighlight(item)}
                                         highlightedItemId={highlightedItemId}
-                                        onHighlightGroup={() => onHighlightGroup(groupId, violation.items)}
+                                        onHighlightGroup={() => onHighlightGroup(groupId, violation.items, violation.category)}
                                         isGroupHighlighted={highlightedGroupId === groupId}
                                     />
                                 );
@@ -196,7 +197,7 @@ const DetailsSection = ({ summary, violations, bestPractices = [], passed, onHig
                                         onNext={() => updateIndex(setPassedItemIndexes, actualIndex, 1, passed)}
                                         onHighlight={(entry) => onHighlight(entry)}
                                         highlightedItemId={highlightedItemId}
-                                        onHighlightGroup={() => onHighlightGroup(groupId, item.items)}
+                                        onHighlightGroup={() => onHighlightGroup(groupId, item.items, item.category)}
                                         isGroupHighlighted={highlightedGroupId === groupId}
                                     />
                                 );

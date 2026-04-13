@@ -22,6 +22,11 @@ export function sendMessageToInspectedTab(message, cb, attempt = 1) {
                     cb({ ok: true, results: mockAxeResults });
                 } else if (message.type === 'get-tab-order') {
                     cb({ ok: true, data: mockTabOrderData });
+                } else if (message.type === 'export-page-html') {
+                    cb({
+                        ok: true,
+                        html: '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mock export</title></head><body><p>HTML export is only available in Chrome DevTools with the extension loaded on a page.</p></body></html>'
+                    });
                 } else {
                     cb({ ok: true });
                 }
